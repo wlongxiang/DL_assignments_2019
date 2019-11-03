@@ -28,7 +28,15 @@ class LinearModule(object):
     #######################
     self.params = {'weight': None, 'bias': None}
     self.grads = {'weight': None, 'bias': None}
-    raise NotImplementedError
+    # bias is of shape out_features x 1
+    self.params["bias"] = np.zeros(out_features)
+    # weight is of shape out_features x in_features
+    self.params["weight"] = np.random.normal(loc=0, scale=0.0001, size=(out_features, in_features))
+    # bias is of shape out_features x 1
+    self.grads["bias"] = np.zeros(out_features)
+    # weight is of shape out_features x in_features
+    self.grads["weight"] = np.zeros((out_features, in_features))
+
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -51,7 +59,8 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.x = x
+    out = x @ self.params["weight"].T + self.params["bias"]
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -75,7 +84,10 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    # as we derivated from the practice
+    self.grads['weight'] = dout.T @ self.x
+    self.grads['bias'] = np.mean(dout, axis=0)
+    dx = dout @ self.params['weight']
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -100,7 +112,7 @@ class LeakyReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.a = neg_slope
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -123,7 +135,10 @@ class LeakyReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.x = x
+    # this is the leaky relu implementation
+    out = np.where(x > 0, x, self.a * x)
+    self.out = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -146,7 +161,7 @@ class LeakyReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = dout * np.where(self.x< 0, self.a, 1)
     ########################
     # END OF YOUR CODE    #
     #######################    
@@ -177,7 +192,10 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    b= np.max(x, axis=1, keepdims=True)
+    self.x = x
+    out = np.exp(x-b) / np.sum(np.exp(x-b), axis=1, keepdims=True)
+    self.out = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -199,7 +217,22 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = np.empty_like(dout)
+
+    # for row in np.arange(len(self.out)):
+    #   out_row_slice = self.out[np.newaxis, row, :]
+    #   dout_row_slice = dout[np.newaxis, row, :]
+    #   dx_row_slice = dout_row_slice @ (np.diag(out_row_slice) - out_row_slice.T @ out_row_slice)
+    #   dx[row] = dx_row_slice
+
+    # split into a list of rows
+    tmp = np.split(self.out, dout.shape[0], axis=0)
+    # make a list of diagonal matrix
+    tmp = tmp * np.eye(self.out.shape[1])
+    # calculate the full matrix from out
+    tmp = tmp - self.out[:, :, np.newaxis] * self.out[:, np.newaxis, :]
+    dx = np.squeeze(dout[:, np.newaxis, :] @ tmp)
+
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -220,14 +253,14 @@ class CrossEntropyModule(object):
     Returns:
       out: cross entropy loss
 
-    TODO:
     Implement forward pass of the module.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = np.sum(-y * np.log(x))
+    self.out = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -250,7 +283,7 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = -y / x
     ########################
     # END OF YOUR CODE    #
     #######################
