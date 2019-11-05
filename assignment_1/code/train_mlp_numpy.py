@@ -7,6 +7,9 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import csv
+import time
+
 import numpy as np
 import os
 from mlp_numpy import MLP
@@ -84,53 +87,47 @@ def train():
   # PUT YOUR CODE HERE  #
   #######################
   lr = FLAGS.learning_rate
+  eval_freq= FLAGS.eval_freq
+  max_steps = FLAGS.max_steps
+  batch_size = FLAGS.batch_size
+  input_size = 32*32*3
+  output_size = 10
   # load dataset
   raw_data = cifar10_utils.get_cifar10(DATA_DIR_DEFAULT)
   train_data = raw_data['train']
   validation_data = raw_data["validation"]
   test_data = raw_data['test']
 
-  input_size = 32*32*3
-  output_size = 10
   model = MLP(n_inputs=input_size, n_hidden=dnn_hidden_units, n_classes=output_size, neg_slope=neg_slope)
   loss_target = CrossEntropyModule()
-  log_every = 10
-  avg_loss = 0
-  avg_acc = 0
-  for step in range(FLAGS.max_steps):
-    x, y = train_data.next_batch(FLAGS.batch_size)
-    x = x.reshape(FLAGS.batch_size, input_size)
-
-    # Forward and backward passes
+  csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+  for step in range(max_steps):
+    x, y = train_data.next_batch(batch_size)
+    x = x.reshape(batch_size, input_size)
+    # train
     output = model.forward(x)
     loss_avg = loss_target.forward(output, y)
     dout = loss_target.backward(output, y)
     model.backward(dout)
-
     # only need to update weights for linear module for each step
     for layer in model.layers:
       if isinstance(layer, LinearModule):
         layer.params['weight'] -= lr * layer.grads['weight']
         layer.params['bias'] -= lr * layer.grads['bias']
-
-    avg_loss += loss_avg / log_every
-    avg_acc += accuracy(output, y) / log_every
-    if step % log_every == 0:
-      print('\r[{}/{}] train loss: {:.6f}  train acc: {:.6f}'.format(step + 1,
-                                                                     FLAGS.max_steps,
-                                                                     avg_loss, avg_acc), end='')
-      avg_loss = 0
-      avg_acc = 0
-
-    # Evaluate
-    if step % FLAGS.eval_freq == 0 or step == (FLAGS.max_steps - 1):
+    train_acc = accuracy(output, y)
+    # with the \r and end = '' trick, we can print on the same line
+    print('\r[{}/{}] train loss: {}  train acc: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
+    # evaluate
+    if step % eval_freq == 0 or step >= (max_steps - 1):
       x, y = test_data.next_batch(test_data.num_examples)
-      x = x.reshape(test_data.num_examples, -1)
+      x = x.reshape(test_data.num_examples, input_size)
       output = model.forward(x)
-      test_loss = loss_target.forward(output, y)
       test_acc = accuracy(output, y)
-      print(' test accuracy: {:6f}'.format(test_acc))
-
+      csv_data.append([step, loss_avg, train_acc, test_acc])
+      print(' test accuracy: {}'.format(round(test_acc,3)))
+  with open('train_summary_{}.csv'.format(int(time.time())), 'w') as csv_file:
+    writer = csv.writer(csv_file)
+    writer.writerows(csv_data)
   ########################
   # END OF YOUR CODE    #
   #######################
