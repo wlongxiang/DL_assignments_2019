@@ -259,7 +259,9 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    out = np.sum(-y * np.log(x))
+    # note that the small number is to avoid numerical issue when x is very small
+    epsilon = 1e-9
+    out = np.mean(-y * np.log(x + epsilon))
     self.out = out
     ########################
     # END OF YOUR CODE    #
@@ -283,7 +285,11 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    dx = -y / x
+    # note that the small number is to avoid numerical issue when x is very small
+    epsilon = 1e-9
+    dx = -y / (x+epsilon)
+    # important to average the loss gradient by number of samples!
+    dx = dx / len(x)
     ########################
     # END OF YOUR CODE    #
     #######################

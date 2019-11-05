@@ -10,7 +10,7 @@ import argparse
 import numpy as np
 import os
 from mlp_numpy import MLP
-from modules import CrossEntropyModule
+from modules import CrossEntropyModule, LinearModule
 import cifar10_utils
 
 # Default constants
@@ -47,7 +47,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  n_samples = targets.shape[0]
+  y_pred = np.argmax(predictions, axis=1)
+  y_true = np.argmax(targets, axis=1)
+  accuracy = np.sum(y_pred == y_true)/n_samples
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -80,7 +83,54 @@ def train():
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  lr = FLAGS.learning_rate
+  # load dataset
+  raw_data = cifar10_utils.get_cifar10(DATA_DIR_DEFAULT)
+  train_data = raw_data['train']
+  validation_data = raw_data["validation"]
+  test_data = raw_data['test']
+
+  input_size = 32*32*3
+  output_size = 10
+  model = MLP(n_inputs=input_size, n_hidden=dnn_hidden_units, n_classes=output_size, neg_slope=neg_slope)
+  loss_target = CrossEntropyModule()
+  log_every = 10
+  avg_loss = 0
+  avg_acc = 0
+  for step in range(FLAGS.max_steps):
+    x, y = train_data.next_batch(FLAGS.batch_size)
+    x = x.reshape(FLAGS.batch_size, input_size)
+
+    # Forward and backward passes
+    output = model.forward(x)
+    loss_avg = loss_target.forward(output, y)
+    dout = loss_target.backward(output, y)
+    model.backward(dout)
+
+    # only need to update weights for linear module for each step
+    for layer in model.layers:
+      if isinstance(layer, LinearModule):
+        layer.params['weight'] -= lr * layer.grads['weight']
+        layer.params['bias'] -= lr * layer.grads['bias']
+
+    avg_loss += loss_avg / log_every
+    avg_acc += accuracy(output, y) / log_every
+    if step % log_every == 0:
+      print('\r[{}/{}] train loss: {:.6f}  train acc: {:.6f}'.format(step + 1,
+                                                                     FLAGS.max_steps,
+                                                                     avg_loss, avg_acc), end='')
+      avg_loss = 0
+      avg_acc = 0
+
+    # Evaluate
+    if step % FLAGS.eval_freq == 0 or step == (FLAGS.max_steps - 1):
+      x, y = test_data.next_batch(test_data.num_examples)
+      x = x.reshape(test_data.num_examples, -1)
+      output = model.forward(x)
+      test_loss = loss_target.forward(output, y)
+      test_acc = accuracy(output, y)
+      print(' test accuracy: {:6f}'.format(test_acc))
+
   ########################
   # END OF YOUR CODE    #
   #######################
