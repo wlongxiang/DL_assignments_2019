@@ -50,10 +50,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  n_samples = targets.shape[0]
+  number_of_inputs = len(targets)
   y_pred = np.argmax(predictions, axis=1)
   y_true = np.argmax(targets, axis=1)
-  accuracy = np.sum(y_pred == y_true)/n_samples
+  accuracy = np.sum(y_pred == y_true)/number_of_inputs
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -116,7 +116,7 @@ def train():
         layer.params['bias'] -= lr * layer.grads['bias']
     train_acc = accuracy(output, y)
     # with the \r and end = '' trick, we can print on the same line
-    print('\r[{}/{}] train loss: {}  train acc: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
+    print('\r[{}/{}] train_loss: {}  train_accuracy: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
     # evaluate
     if step % eval_freq == 0 or step >= (max_steps - 1):
       x, y = test_data.next_batch(test_data.num_examples)
@@ -124,7 +124,7 @@ def train():
       output = model.forward(x)
       test_acc = accuracy(output, y)
       csv_data.append([step, loss_avg, train_acc, test_acc])
-      print(' test accuracy: {}'.format(round(test_acc,3)))
+      print(' test_accuracy: {}'.format(round(test_acc,3)))
   with open('train_summary_{}.csv'.format(int(time.time())), 'w') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerows(csv_data)
