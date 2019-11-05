@@ -7,12 +7,19 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import csv
+import time
+import torch
+
 import numpy as np
 import os
 from mlp_pytorch import MLP
 import cifar10_utils
+from torch import nn
 
 # Default constants
+from torch.autograd import Variable
+
 DNN_HIDDEN_UNITS_DEFAULT = '100'
 LEARNING_RATE_DEFAULT = 2e-3
 MAX_STEPS_DEFAULT = 1500
@@ -46,7 +53,9 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  number_of_inputs = len(targets)
+  _, y_pred = predictions.max(dim=1)
+  accuracy = (y_pred == targets).sum().item() / number_of_inputs
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -79,7 +88,57 @@ def train():
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  raise NotImplementedError
+  lr = FLAGS.learning_rate
+  eval_freq= FLAGS.eval_freq
+  max_steps = FLAGS.max_steps
+  batch_size = FLAGS.batch_size
+  input_size = 32*32*3
+  output_size = 10
+  # load dataset
+  raw_data = cifar10_utils.get_cifar10(DATA_DIR_DEFAULT)
+  train_data = raw_data['train']
+  validation_data = raw_data["validation"]
+  test_data = raw_data['test']
+
+  model = MLP(n_inputs=input_size, n_hidden=dnn_hidden_units, n_classes=output_size, neg_slope=neg_slope)
+  optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-2)
+  loss_target = nn.CrossEntropyLoss()
+  csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+
+  for step in range(max_steps):
+    x, y = train_data.next_batch(batch_size)
+    x = x.reshape(batch_size, input_size)
+    # train
+    x = Variable(torch.from_numpy(x))
+    output = model.forward(x)
+    loss = loss_target.forward(output, torch.max(torch.from_numpy(y), 1)[1])
+    loss_avg = loss.item()
+    model.zero_grad()
+    # optimizer.zero_grad()
+    loss.backward()
+
+    # only need to update weights for linear module for each step
+    # optimizer.step()
+
+    with torch.no_grad():
+      for param in model.parameters():
+        param.data -= lr * param.grad
+
+    train_acc = accuracy(output, torch.max(torch.from_numpy(y), 1)[1])
+    # with the \r and end = '' trick, we can print on the same line
+    print('\r[{}/{}] train_loss: {}  train_accuracy: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
+    # evaluate
+    if step % eval_freq == 0 or step >= (max_steps - 1):
+      x, y = test_data.next_batch(test_data.num_examples)
+      x = x.reshape(test_data.num_examples, input_size)
+      x = Variable(torch.from_numpy(x))
+      output = model.forward(x)
+      test_acc = accuracy(output, torch.max(torch.from_numpy(y), 1)[1])
+      csv_data.append([step, loss_avg, train_acc, test_acc])
+      print(' test_accuracy: {}'.format(round(test_acc,3)))
+  with open('train_summary_torch_{}.csv'.format(int(time.time())), 'w') as csv_file:
+    writer = csv.writer(csv_file)
+    writer.writerows(csv_data)
   ########################
   # END OF YOUR CODE    #
   #######################
