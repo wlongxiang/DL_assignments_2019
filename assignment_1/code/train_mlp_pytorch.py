@@ -20,10 +20,10 @@ from torch import nn
 # Default constants
 from torch.autograd import Variable
 
-DNN_HIDDEN_UNITS_DEFAULT = '100'
+DNN_HIDDEN_UNITS_DEFAULT = '500,500,500,500'
 LEARNING_RATE_DEFAULT = 2e-3
 MAX_STEPS_DEFAULT = 1500
-BATCH_SIZE_DEFAULT = 200
+BATCH_SIZE_DEFAULT = 500
 EVAL_FREQ_DEFAULT = 100
 NEG_SLOPE_DEFAULT = 0.02
 
@@ -53,9 +53,10 @@ def accuracy(predictions, targets):
   ########################
   # PUT YOUR CODE HERE  #
   #######################
-  number_of_inputs = len(targets)
-  _, y_pred = predictions.max(dim=1)
-  accuracy = (y_pred == targets).sum().item() / number_of_inputs
+  number_of_inputs = predictions.shape[0]
+  y_pred = predictions.argmax(dim=1)
+  targets_index = targets.argmax(dim=1)
+  accuracy = torch.sum(y_pred == targets_index).item() / number_of_inputs
   ########################
   # END OF YOUR CODE    #
   #######################
@@ -88,6 +89,16 @@ def train():
   ########################
   # PUT YOUR CODE HERE  #
   #######################
+
+
+  def init_weights(m):
+    print(m)
+    if type(m) == nn.Linear:
+      m.weight.data.uniform_(0.0, 1.0)
+      print(m.weight)
+      m.bias.data.fill_(0.0)
+      print(m.bias)
+
   lr = FLAGS.learning_rate
   eval_freq= FLAGS.eval_freq
   max_steps = FLAGS.max_steps
@@ -101,39 +112,47 @@ def train():
   test_data = raw_data['test']
 
   model = MLP(n_inputs=input_size, n_hidden=dnn_hidden_units, n_classes=output_size, neg_slope=neg_slope)
-  optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-2)
+  print(model.layers)
+
+  optimizer = torch.optim.Adam(model.parameters(), lr=lr)
   loss_target = nn.CrossEntropyLoss()
   csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+  print("initial weights as normal distribution and bias as zeros")
+  # model.layers.apply(init_weights)
 
   for step in range(max_steps):
     x, y = train_data.next_batch(batch_size)
     x = x.reshape(batch_size, input_size)
+    x = torch.tensor(x, dtype=torch.float32)
+    y = torch.tensor(y, dtype=torch.long)
     # train
-    x = Variable(torch.from_numpy(x))
+    # x = Variable(torch.from_numpy(x))
     output = model.forward(x)
-    loss = loss_target.forward(output, torch.max(torch.from_numpy(y), 1)[1])
-    loss_avg = loss.item()
-    model.zero_grad()
-    # optimizer.zero_grad()
+    loss = loss_target.forward(output, y.argmax(dim=1))
+    # somehow we need to divide the loss by the output size to get the same loss
+    loss_avg = loss.item()/10
+    # model.zero_grad()
+    optimizer.zero_grad()
     loss.backward()
 
     # only need to update weights for linear module for each step
-    # optimizer.step()
+    optimizer.step()
 
-    with torch.no_grad():
-      for param in model.parameters():
-        param.data -= lr * param.grad
+    # with torch.no_grad():
+    #   for param in model.parameters():
+    #     param.data -= lr * param.grad
 
-    train_acc = accuracy(output, torch.max(torch.from_numpy(y), 1)[1])
+    train_acc = accuracy(output, y)
     # with the \r and end = '' trick, we can print on the same line
     print('\r[{}/{}] train_loss: {}  train_accuracy: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
     # evaluate
     if step % eval_freq == 0 or step >= (max_steps - 1):
       x, y = test_data.next_batch(test_data.num_examples)
       x = x.reshape(test_data.num_examples, input_size)
-      x = Variable(torch.from_numpy(x))
+      x = torch.tensor(x, dtype=torch.float32)
+      y = torch.tensor(y, dtype=torch.long)
       output = model.forward(x)
-      test_acc = accuracy(output, torch.max(torch.from_numpy(y), 1)[1])
+      test_acc = accuracy(output, y)
       csv_data.append([step, loss_avg, train_acc, test_acc])
       print(' test_accuracy: {}'.format(round(test_acc,3)))
   with open('train_summary_torch_{}.csv'.format(int(time.time())), 'w') as csv_file:

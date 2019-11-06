@@ -37,22 +37,27 @@ class MLP(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
+    super(MLP, self).__init__()
     self.n_inputs = n_inputs
     self.n_hidden = n_hidden
     self.n_classes = n_classes
     self.neg_slope = neg_slope
-    n_neurons = [self.n_inputs] + self.n_hidden + [self.n_classes]
-    super(MLP, self).__init__()
     self.layers = []
-    for i in range(len(n_neurons) - 1):
+
+    n_neurons = [self.n_inputs] + self.n_hidden
+    # for each hidden layer, we have Linear Module + ReLu module
+    for i in range(len(n_hidden)):
         linear_module = nn.Linear(in_features=n_neurons[i], out_features=n_neurons[i+1])
         self.layers.append(linear_module)
-        # note that we do not need relu module for the last layer (output), we apply softmax later
-        if i < len(n_neurons) - 2:
-          leakeyrelu_modulle = nn.LeakyReLU(negative_slope=self.neg_slope)
-          self.layers.append(leakeyrelu_modulle)
-    softmax_module = nn.Softmax(dim=1)
-    self.layers.append(softmax_module)
+        leakeyrelu_module = nn.LeakyReLU(negative_slope=self.neg_slope)
+        self.layers.append(leakeyrelu_module)
+
+    # for the output layer, we need Relu module + SoftMax moudle
+    linear_module = nn.Linear(in_features=n_neurons[-1], out_features=n_classes)
+    self.layers.append(linear_module)
+    # !! no need to another softmax module here, because softmax is included in the CrossEntropy loss!!
+    # softmax_module = nn.Softmax(dim=1)
+    # self.layers.append(softmax_module)
     # convert it to sequential container
     self.layers = nn.Sequential(*self.layers)
     ########################
@@ -77,7 +82,7 @@ class MLP(nn.Module):
     # PUT YOUR CODE HERE  #
     #######################
 
-    out = self.layers(x)
+    out = self.layers.forward(x)
     ########################
     # END OF YOUR CODE    #
     #######################

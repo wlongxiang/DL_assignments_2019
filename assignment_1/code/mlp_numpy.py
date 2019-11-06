@@ -42,14 +42,19 @@ class MLP(object):
     self.n_classes = n_classes
     self.neg_slope = neg_slope
     self.layers = []
-    n_neurons = [self.n_inputs] + self.n_hidden + [self.n_classes]
-    for i in range(len(n_neurons) - 1):
+
+    n_neurons = [self.n_inputs] + self.n_hidden
+
+    # for each hidden layer, we have Linear Module + ReLu module
+    for i in range(len(n_hidden)):
         linear_module = LinearModule(in_features=n_neurons[i], out_features=n_neurons[i+1])
         self.layers.append(linear_module)
-        # note that we do not need relu module for the last layer (output), we apply softmax later
-        if i < len(n_neurons) - 2:
-          leakeyrelu_modulle = LeakyReLUModule(neg_slope=self.neg_slope)
-          self.layers.append(leakeyrelu_modulle)
+        leakeyrelu_module = LeakyReLUModule(neg_slope=self.neg_slope)
+        self.layers.append(leakeyrelu_module)
+
+    # for the output layer, we need Relu module + SoftMax moudle
+    linear_module = LinearModule(in_features=n_neurons[-1], out_features=n_classes)
+    self.layers.append(linear_module)
     softmax_module = SoftMaxModule()
     self.layers.append(softmax_module)
     ########################

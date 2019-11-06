@@ -125,7 +125,7 @@ def train():
       test_acc = accuracy(output, y)
       csv_data.append([step, loss_avg, train_acc, test_acc])
       print(' test_accuracy: {}'.format(round(test_acc,3)))
-  with open('train_summary_{}.csv'.format(int(time.time())), 'w') as csv_file:
+  with open('train_summary_np_{}.csv'.format(int(time.time())), 'w') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerows(csv_data)
   ########################
