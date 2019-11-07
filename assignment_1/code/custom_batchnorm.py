@@ -37,7 +37,10 @@ class CustomBatchNormAutograd(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-
+    self.n_neurons = n_neurons
+    self.eps = eps
+    self.beta = nn.Parameter(torch.zeros(n_neurons))
+    self.gamma = nn.Parameter(torch.ones(n_neurons))
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -60,6 +63,19 @@ class CustomBatchNormAutograd(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
+    # check input shapes
+    if len(input.shape) != 2:
+        raise ValueError("the input should be of shape (x,y)")
+    if input.shape[1] != self.n_neurons:
+        raise ValueError("the number of neurons should be {}".format(self.n_neurons))
+    # calculate the mean along coumn, meaning get the mean for rach neuron
+    mean = torch.mean(input, dim=0)
+    variance = torch.mean(torch.pow(input - mean, 2), dim=0)
+    # normalize
+    eps = 1e-5
+    x_normalized = (input - mean)/(torch.sqrt(variance + self.eps))
+    # scale and shift
+    out = self.gamma * x_normalized + self.beta
 
     ########################
     # END OF YOUR CODE    #
@@ -114,7 +130,14 @@ class CustomBatchNormManualFunction(torch.autograd.Function):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-
+    mean = torch.mean(input, dim=0)
+    variance = torch.mean(torch.pow(input - mean, 2), dim=0)
+    # normalize
+    eps = 1e-5
+    squared_variance = torch.sqrt(variance + eps)
+    x_normalized = (input - mean)/(squared_variance)
+    out = gamma * x_normalized + beta
+    ctx.save_for_backward(gamma, x_normalized, squared_variance)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -142,7 +165,20 @@ class CustomBatchNormManualFunction(torch.autograd.Function):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
+    batch_size = grad_output.shape[0]
 
+    gamma, x_normalized, squared_variance = ctx.saved_tensors
+    grad_input = grad_gamma = grad_beta = None
+
+    if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
+      # Compute grad_gamma
+      grad_gamma = torch.sum(grad_output * x_normalized, dim=0)
+    if ctx.needs_input_grad[0] or ctx.needs_input_grad[2]:
+      # Compute grad_beta
+      grad_beta = torch.sum(grad_output, dim=0)
+    if ctx.needs_input_grad[0]:
+      grad_input = (batch_size * grad_output - grad_beta - x_normalized * grad_gamma)* gamma / (batch_size * squared_variance)
+      # grad_input = (grad_input * gamma)/(batch_size * squared_variance)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -180,7 +216,12 @@ class CustomBatchNormManualModule(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-
+    self.gamma = nn.Parameter(torch.Tensor(n_neurons))
+    self.beta = nn.Parameter(torch.Tensor(n_neurons))
+    nn.init.ones_(self.gamma)
+    nn.init.zeros_(self.beta)
+    self.n_neurons = n_neurons
+    self.eps = eps
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -203,7 +244,14 @@ class CustomBatchNormManualModule(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
+    if input.dim() != 2:
+      raise ValueError('Expected 2D tensor but got {:d}D'.format(input.dim()))
+    if input.shape[1] != self.n_neurons:
+      msg = 'Number of neurons do not match, expected {:d}, got {:d}'
+      raise ValueError(msg.format(self.n_neurons, input.shape[1]))
 
+    out = CustomBatchNormManualFunction.apply(input,
+                                              self.gamma, self.beta, self.eps)
     ########################
     # END OF YOUR CODE    #
     #######################
