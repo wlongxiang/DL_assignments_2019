@@ -261,7 +261,8 @@ class CrossEntropyModule(object):
     #######################
     # note that the small number is to avoid numerical issue when x is very small
     epsilon = 1e-9
-    out = np.mean(-y * np.log(x + epsilon))
+    # be careful to put x * y in the log!
+    out = - np.log(np.max(x * y, axis=1) + epsilon).mean()
     self.out = out
     ########################
     # END OF YOUR CODE    #
