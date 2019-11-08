@@ -5,6 +5,8 @@ You should fill in code into indicated sections.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import torch.nn as nn
+
 
 class ConvNet(nn.Module):
   """
@@ -29,7 +31,41 @@ class ConvNet(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    super(ConvNet, self).__init__()
+    self.layers = nn.Sequential(
+      nn.Conv2d(in_channels=n_channels, out_channels=64, kernel_size=3, padding=1, stride=1),
+      nn.BatchNorm2d(num_features=64),
+      nn.ReLU(),
+      nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+      nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=128),
+      nn.ReLU(),
+      nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+      nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=256),
+      nn.ReLU(),
+      nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=256),
+      nn.ReLU(),
+      nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+      nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=512),
+      nn.ReLU(),
+      nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=512),
+      nn.ReLU(),
+      nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+      nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=512),
+      nn.ReLU(),
+      nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+      nn.BatchNorm2d(num_features=512),
+      nn.ReLU(),
+      nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+      nn.AvgPool2d(1, stride=1, padding=0),
+    )
+    # add a fully connected layer for output
+    self.output = nn.Linear(in_features=512, out_features=n_classes)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -51,7 +87,10 @@ class ConvNet(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    batch_size = x.shape[0]
+    features = self.layers.forward(x)
+    # flatten out output before feeding to fc output
+    out = self.output(features.view(batch_size, -1))
     ########################
     # END OF YOUR CODE    #
     #######################
