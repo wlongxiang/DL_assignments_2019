@@ -95,8 +95,8 @@ def train():
   train_data = raw_data['train']
   validation_data = raw_data["validation"]
   test_data = raw_data['test']
-
-  model = ConvNet(n_channels=3, n_classes=10)
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  model = ConvNet(n_channels=3, n_classes=10).to(device)
   print(model.layers)
 
   optimizer = torch.optim.Adam(model.parameters(), lr=lr)
