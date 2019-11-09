@@ -108,8 +108,8 @@ def train():
   for step in range(max_steps):
     x, y = train_data.next_batch(batch_size)
     # x = x.reshape(batch_size, input_size)
-    x = torch.tensor(x, dtype=torch.float32)
-    y = torch.tensor(y, dtype=torch.long)
+    x = torch.tensor(x, dtype=torch.float32).to(device)
+    y = torch.tensor(y, dtype=torch.long).to(device)
     # train
     # x = Variable(torch.from_numpy(x))
     output = model.forward(x)
@@ -134,8 +134,8 @@ def train():
     if step % eval_freq == 0 or step >= (max_steps - 1):
       x, y = test_data.next_batch(test_data.num_examples)
       # x = x.reshape(test_data.num_examples, input_size)
-      x = torch.tensor(x, dtype=torch.float32)
-      y = torch.tensor(y, dtype=torch.long)
+      x = torch.tensor(x, dtype=torch.float32).to(device)
+      y = torch.tensor(y, dtype=torch.long).to(device)
       output = model.forward(x)
       test_acc = accuracy(output, y)
       csv_data.append([step, loss_avg, train_acc, test_acc])
