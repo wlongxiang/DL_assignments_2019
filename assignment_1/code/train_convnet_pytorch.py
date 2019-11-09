@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import argparse
 import csv
+import math
 import time
 
 import torch
@@ -132,12 +133,18 @@ def train():
     print('\r[{}/{}] train_loss: {}  train_accuracy: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
     # evaluate
     if step % eval_freq == 0 or step >= (max_steps - 1):
-      x, y = test_data.next_batch(test_data.num_examples)
-      # x = x.reshape(test_data.num_examples, input_size)
-      x = torch.tensor(x, dtype=torch.float32).to(device)
-      y = torch.tensor(y, dtype=torch.long).to(device)
-      output = model.forward(x)
-      test_acc = accuracy(output, y)
+      test_batch_acc = 0
+      test_batch_size = 100
+      total_test_samples = test_data.num_examples
+      batch_num = math.ceil(total_test_samples/test_batch_size)
+      for i in range(batch_num):
+        x, y = test_data.next_batch(test_batch_size)
+        # x = x.reshape(test_data.num_examples, input_size)
+        x = torch.tensor(x, dtype=torch.float32).to(device)
+        y = torch.tensor(y, dtype=torch.long).to(device)
+        output = model.forward(x)
+        test_batch_acc += accuracy(output, y)
+      test_acc = test_batch_acc / batch_num
       csv_data.append([step, loss_avg, train_acc, test_acc])
       print(' test_accuracy: {}'.format(round(test_acc,3)))
   with open('train_summary_torchconvnet_{}.csv'.format(int(time.time())), 'w') as csv_file:
