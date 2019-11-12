@@ -1,2 +1,9 @@
 .DS_Store
 */.DS_Store
+.idea
+.vscode
+*.pyc
+.cache
+.ipynb_checkpoints
+cifar-10-batches-py
+__pycache__

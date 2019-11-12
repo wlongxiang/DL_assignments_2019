@@ -102,7 +102,7 @@ def train():
 
   optimizer = torch.optim.Adam(model.parameters(), lr=lr)
   loss_target = nn.CrossEntropyLoss()
-  csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+  csv_data = [['step', 'train_loss', 'test_loss', 'train_accuracy', 'test_accuracy']]
   print("initial weights as normal distribution and bias as zeros")
   # model.layers.apply(init_weights)
 
@@ -116,7 +116,7 @@ def train():
     output = model.forward(x)
     loss = loss_target.forward(output, y.argmax(dim=1))
     # somehow we need to divide the loss by the output size to get the same loss
-    loss_avg = loss.item()/10
+    loss_avg = loss.item()
     # model.zero_grad()
     optimizer.zero_grad()
     loss.backward()
@@ -133,7 +133,7 @@ def train():
     print('\r[{}/{}] train_loss: {}  train_accuracy: {}'.format(step + 1, max_steps,round(loss_avg, 3),round(train_acc, 3)), end='')
     # evaluate
     if step % eval_freq == 0 or step >= (max_steps - 1):
-      test_batch_acc = 0
+      test_batch_acc = test_loss_batch = 0
       test_batch_size = 100
       total_test_samples = test_data.num_examples
       batch_num = math.ceil(total_test_samples/test_batch_size)
@@ -143,11 +143,14 @@ def train():
         x = torch.tensor(x, dtype=torch.float32).to(device)
         y = torch.tensor(y, dtype=torch.long).to(device)
         output = model.forward(x)
+        test_loss_batch += loss_target.forward(output, y.argmax(dim=1)).item()
+
         test_batch_acc += accuracy(output, y)
+      test_loss =   test_loss_batch / batch_num
       test_acc = test_batch_acc / batch_num
-      csv_data.append([step, loss_avg, train_acc, test_acc])
-      print(' test_accuracy: {}'.format(round(test_acc,3)))
-  with open('train_summary_torchconvnet_{}.csv'.format(int(time.time())), 'w') as csv_file:
+      csv_data.append([step, loss_avg, test_loss, train_acc, test_acc])
+      print(' test_loss: {}, test_accuracy: {}'.format(round(test_loss, 3), round(test_acc,3)))
+  with open('results/train_summary_torchconvnet_{}.csv'.format(int(time.time())), 'w') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerows(csv_data)
   ########################

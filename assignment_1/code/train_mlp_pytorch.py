@@ -20,10 +20,17 @@ from torch import nn
 # Default constants
 from torch.autograd import Variable
 
-DNN_HIDDEN_UNITS_DEFAULT = '500,500,500,500'
+# DNN_HIDDEN_UNITS_DEFAULT = '100'
+# LEARNING_RATE_DEFAULT = 2e-3
+# MAX_STEPS_DEFAULT = 1500
+# BATCH_SIZE_DEFAULT = 200
+# EVAL_FREQ_DEFAULT = 100
+# NEG_SLOPE_DEFAULT = 0.02
+
+DNN_HIDDEN_UNITS_DEFAULT = '100'
 LEARNING_RATE_DEFAULT = 2e-3
 MAX_STEPS_DEFAULT = 1500
-BATCH_SIZE_DEFAULT = 500
+BATCH_SIZE_DEFAULT = 200
 EVAL_FREQ_DEFAULT = 100
 NEG_SLOPE_DEFAULT = 0.02
 
@@ -116,7 +123,7 @@ def train():
 
   optimizer = torch.optim.Adam(model.parameters(), lr=lr)
   loss_target = nn.CrossEntropyLoss()
-  csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+  csv_data = [['step', 'train_loss', 'test_loss', 'train_accuracy', 'test_accuracy']]
   print("initial weights as normal distribution and bias as zeros")
   # model.layers.apply(init_weights)
 
@@ -130,7 +137,7 @@ def train():
     output = model.forward(x)
     loss = loss_target.forward(output, y.argmax(dim=1))
     # somehow we need to divide the loss by the output size to get the same loss
-    loss_avg = loss.item()/10
+    loss_avg = loss.item()
     # model.zero_grad()
     optimizer.zero_grad()
     loss.backward()
@@ -152,10 +159,11 @@ def train():
       x = torch.tensor(x, dtype=torch.float32)
       y = torch.tensor(y, dtype=torch.long)
       output = model.forward(x)
+      test_loss = loss_target.forward(output, y.argmax(dim=1)).item()
       test_acc = accuracy(output, y)
-      csv_data.append([step, loss_avg, train_acc, test_acc])
-      print(' test_accuracy: {}'.format(round(test_acc,3)))
-  with open('train_summary_torch_{}.csv'.format(int(time.time())), 'w') as csv_file:
+      csv_data.append([step, loss_avg, test_loss, train_acc, test_acc])
+      print(' test_loss: {}, test_accuracy: {}'.format(round(test_loss, 3), round(test_acc,3)))
+  with open('results/train_summary_torch_{}.csv'.format(int(time.time())), 'w') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerows(csv_data)
   ########################

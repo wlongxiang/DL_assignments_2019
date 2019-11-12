@@ -100,7 +100,7 @@ def train():
 
   model = MLP(n_inputs=input_size, n_hidden=dnn_hidden_units, n_classes=output_size, neg_slope=neg_slope)
   loss_target = CrossEntropyModule()
-  csv_data = [['step', 'train_loss', 'train_accuracy', 'test_accuracy']]
+  csv_data = [['step', 'train_loss', 'test_loss', 'train_accuracy', 'test_accuracy']]
   for step in range(max_steps):
     x, y = train_data.next_batch(batch_size)
     x = x.reshape(batch_size, input_size)
@@ -122,10 +122,11 @@ def train():
       x, y = test_data.next_batch(test_data.num_examples)
       x = x.reshape(test_data.num_examples, input_size)
       output = model.forward(x)
+      test_loss = loss_target.forward(output, y)
       test_acc = accuracy(output, y)
-      csv_data.append([step, loss_avg, train_acc, test_acc])
-      print(' test_accuracy: {}'.format(round(test_acc,3)))
-  with open('train_summary_np_{}.csv'.format(int(time.time())), 'w') as csv_file:
+      csv_data.append([step, loss_avg, test_loss, train_acc, test_acc])
+      print(' test_loss: {}, test_accuracy: {}'.format(round(test_loss, 3), round(test_acc,3)))
+  with open('results/train_summary_np_{}.csv'.format(int(time.time())), 'w') as csv_file:
     writer = csv.writer(csv_file)
     writer.writerows(csv_data)
   ########################
