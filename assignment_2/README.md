@@ -18,7 +18,7 @@ The first task can be mostly performed on your own computer (CPU), but especiall
 
 ## Task 1. RNNs versus LSTMs
 
-For the first task, you will compare vanilla Recurrent Neural Networks (RNN) with Long-Short Term Networks (LSTM). You have to implement both network modules in the files `lstm.py` and `vanilla_rnn.py` from scratch (i.e. you are not allowed to use `nn.LSTM`, but other functionalities from PyTorch like `nn.Linear`). The palindrome dataset generation is provided in `dataset.py` and can be used without any changes. 
+For the first task, you will compare vanilla Recurrent Neural Networks (RNN) with Long-Short Term Networks (LSTM). You have to implement both network modules in the files `lstm.py` and `vanilla_rnn.py` from scratch (i.e. you are not allowed to use `nn.LSTM` or `nn.Linear`, but work with functionalities like `nn.Parameter`). The palindrome dataset generation is provided in `dataset.py` and can be used without any changes. 
 
 The file `train.py` gives a initial structure for training your models. Make sure to integrate all (hyper-)parameters that are given for the `ArgumentParser`. Feel free to add more parameters if needed.
 
@@ -59,14 +59,17 @@ lastname_assignment_2.zip
 │      lstm.py
 │      train.py
 │      vanilla_rnn.py
+|      grads_over_time.py
 │   part_2/
 │      dataset.py
 │      model.py
 │      train.py
+|      assets/
 ```
 
-Replace `lastname` with your last name. In case you have created any other python files to obtain results in the report, include those in the corresponding directory as well.
-Finally, please submit your file on Canvas.
+Replace `lastname` with your last name. In case you have created any other python files to obtain results in the report, include those in the corresponding directory as well. Remember to replace the data in the assets folder with the ones you have used (i.e. put the txt files of the books you used in this folder). Given example datasets which were not used do not have to be included in the submission.
 
-The deadline for the assignment is the **27 November, 23:59**.
+Finally, please submit your zip-file on Canvas.
+
+The deadline for the assignment is the **29 November, 23:59** (extended from 27 November).
 
