@@ -24,6 +24,7 @@ from datetime import datetime
 import numpy as np
 
 import torch
+from torch import optim, nn
 from torch.utils.data import DataLoader
 
 from part1.dataset import PalindromeDataset
@@ -34,6 +35,36 @@ from part1.lstm import LSTM
 # from torch.utils.tensorboard import SummaryWriter
 
 ################################################################################
+def get_accuracy(predictions, targets):
+    """
+    Computes the prediction accuracy, i.e. the average of correct predictions
+    of the network.
+
+    Args:
+      predictions: 2D float array of size [batch_size, n_classes]
+      labels: 2D int array of size [batch_size, n_classes]
+              with one-hot encoding. Ground truth labels for
+              each sample in the batch
+    Returns:
+      accuracy: scalar float, the accuracy of predictions,
+                i.e. the average correct predictions over the whole batch
+
+    TODO:
+    Implement accuracy computation.
+    """
+
+    ########################
+    # PUT YOUR CODE HERE  #
+    #######################
+    batch_size = targets.shape[0]
+    _, y_pred = predictions.max(dim=1)
+    accuracy = (y_pred == targets).sum().item() / batch_size
+    ########################
+    # END OF YOUR CODE    #
+    #######################
+
+    return accuracy
+
 
 def train(config):
 
@@ -43,15 +74,20 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the model that we are going to use
-    model = None  # fixme
-
+    if config.model_type == "RNN":
+        model_def = VanillaRNN
+    else:
+        model_def = LSTM
+    model = model_def(config.input_length, config.input_dim,
+                        config.num_hidden, config.num_classes,
+                        config.device).to(device) # fixme
     # Initialize the dataset and data loader (note the +1)
     dataset = PalindromeDataset(config.input_length+1)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
 
     # Setup the loss and optimizer
-    criterion = None  # fixme
-    optimizer = None  # fixme
+    criterion = nn.CrossEntropyLoss()  # fixme
+    optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
@@ -59,6 +95,12 @@ def train(config):
         t1 = time.time()
 
         # Add more code here ...
+        batch_inputs = batch_inputs.to(device)
+        batch_targets = batch_targets.to(device)
+
+        out = model.forward(batch_inputs)
+        batch_loss = criterion(out, batch_targets)
+        batch_loss.backward()
 
         ############################################################################
         # QUESTION: what happens here and why?
@@ -67,9 +109,10 @@ def train(config):
         ############################################################################
 
         # Add more code here ...
+        optimizer.step()
 
-        loss = np.inf   # fixme
-        accuracy = 0.0  # fixme
+        loss = batch_loss.item() # fixme
+        accuracy = get_accuracy(out, batch_targets) # fixme
 
         # Just for time measurement
         t2 = time.time()
@@ -110,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--train_steps', type=int, default=10000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=10.0)
-    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
 
     config = parser.parse_args()
 
