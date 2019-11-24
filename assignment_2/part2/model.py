@@ -39,6 +39,7 @@ class TextGenerationModel(nn.Module):
         self.register_buffer('one_hot_codes', one_hot_codes)
 
     def forward(self, x):
+        # x is of shape (batch_size, seq_length)
         # Implementation here...
         x_one_hot = self.one_hot_codes[x]
         # according to pytorch docs: input of shape (seq_length, batch_size, input_size)

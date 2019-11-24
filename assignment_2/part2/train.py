@@ -33,6 +33,20 @@ from part2.dataset import TextDataset
 from part2.model import TextGenerationModel
 
 ################################################################################
+def predict(dataset, seq_length, model, device, tau=2.0):
+    letter = dataset._char_to_ix[np.random.choice(dataset._chars)]
+    letters = torch.tensor(letter).reshape([1, 1]).to(device)
+    for i in range(seq_length-1):
+        raw_pred_letter_last = model.forward(letters)[:, :, -1] # shape (1, vocab_size)
+        if tau == 0:
+            predcited_letter = raw_pred_letter_last.argmax(dim=1).reshape(1,-1)
+        else:
+            letter_prob = torch.softmax(tau * raw_pred_letter_last, dim=1)
+            predcited_letter = torch.multinomial(letter_prob, 1).reshape([1, -1])
+        letters = torch.cat((letters, predcited_letter),1)
+    sentence = dataset.convert_to_string(letters.squeeze().numpy())
+    return sentence
+
 def get_accuracy(predictions, targets):
     """
     Computes the prediction accuracy, i.e. the average of correct predictions
@@ -81,7 +95,7 @@ def train(config):
     criterion = nn.CrossEntropyLoss()  # fixme
     # optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)  # fixme
-
+    text_gen = 'results/result_{}.txt'.format(int(time.time()))
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
         # Only for time measurement of step through network
@@ -111,9 +125,19 @@ def train(config):
                     accuracy, loss
             ))
 
+        if step > 1 and step % 5000 == 0:
+            print("saving model at step {}, accu {}".format(step, accuracy))
+            torch.save(model, './checkpoints/step_{}_acc_{}.model'.format(step, accuracy))
+
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            pass
+            for i in range(5):
+                sentense = predict(dataset, config.seq_length, model, device)
+                print(sentense)
+                with open(text_gen, 'a') as fp:
+                    fp.write('{}:{}\n'.format(int(step), sentense))
+            # another way
+
 
         if step == config.train_steps:
             # If you receive a PyTorch data-loader error, check this bug report:
@@ -139,7 +163,7 @@ if __name__ == "__main__":
 
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=0.002, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate')
 
     # It is not necessary to implement the following three params, but it may help training.
     parser.add_argument('--learning_rate_decay', type=float, default=0.96, help='Learning rate decay fraction')
