@@ -37,7 +37,7 @@ class VanillaRNN(nn.Module):
         self.bh = nn.Parameter(torch.Tensor(num_hidden))
         self.V = nn.Parameter(torch.Tensor(num_classes, num_hidden))
         self.bp = nn.Parameter(torch.Tensor(num_classes))
-        self.W = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
+        self.W = nn.Parameter(torch.Tensor(num_hidden, num_hidden), requires_grad=True)
         # init
         # it show great importance by experiment here that weights need to be
         # somehow have a small negtive mean, otherwise training just fails

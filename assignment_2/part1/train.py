@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import csv
 import time
 from datetime import datetime
 import numpy as np
@@ -88,6 +89,17 @@ def train(config):
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss()  # fixme
     optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
+    # init csv file
+    cvs_file = 'results/train{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.model_type,
+                                                                                                config.input_length,
+                                                                                                config.num_hidden,
+                                                                                                 config.learning_rate,
+                                                                                                 config.batch_size,
+                                                                                                 int(time.time()))
+    cols_data = ['step', 'train_loss', 'train_accuracy']
+    with open(cvs_file, 'a') as fd:
+        writer = csv.writer(fd)
+        writer.writerow(cols_data)
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
@@ -126,7 +138,10 @@ def train(config):
                     config.train_steps, config.batch_size, examples_per_second,
                     accuracy, loss
             ))
-
+            csv_data = [step, loss, accuracy]
+            with open(cvs_file, 'a') as fd:
+                writer = csv.writer(fd)
+                writer.writerow(csv_data)
         if step == config.train_steps:
             # If you receive a PyTorch data-loader error, check this bug report:
             # https://github.com/pytorch/pytorch/pull/9655
@@ -144,13 +159,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--model_type', type=str, default="RNN", help="Model type, should be 'RNN' or 'LSTM'")
-    parser.add_argument('--input_length', type=int, default=10, help='Length of an input sequence')
+    parser.add_argument('--model_type', type=str, default="LSTM", help="Model type, should be 'RNN' or 'LSTM'")
+    parser.add_argument('--input_length', type=int, default=40, help='Length of an input sequence')
     parser.add_argument('--input_dim', type=int, default=1, help='Dimensionality of input sequence')
     parser.add_argument('--num_classes', type=int, default=10, help='Dimensionality of output sequence')
     parser.add_argument('--num_hidden', type=int, default=128, help='Number of hidden units in the model')
     parser.add_argument('--batch_size', type=int, default=128, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--train_steps', type=int, default=10000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=10.0)
     parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
