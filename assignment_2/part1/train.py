@@ -90,13 +90,13 @@ def train(config):
     criterion = nn.CrossEntropyLoss()  # fixme
     optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
     # init csv file
-    cvs_file = 'results/train{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.model_type,
+    cvs_file = 'results/w_grad_{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.model_type,
                                                                                                 config.input_length,
                                                                                                 config.num_hidden,
                                                                                                  config.learning_rate,
                                                                                                  config.batch_size,
                                                                                                  int(time.time()))
-    cols_data = ['step', 'train_loss', 'train_accuracy']
+    cols_data = ['step', 'train_loss', 'train_accuracy', "avg_grad_w"]
     with open(cvs_file, 'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(cols_data)
@@ -109,7 +109,6 @@ def train(config):
         # Add more code here ...
         batch_inputs = batch_inputs.to(device)
         batch_targets = batch_targets.to(device)
-
         out = model.forward(batch_inputs)
         batch_loss = criterion(out, batch_targets)
         batch_loss.backward()
@@ -119,7 +118,10 @@ def train(config):
         ############################################################################
         torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.max_norm)
         ############################################################################
-
+        model_params = model.named_parameters()
+        for name, param in model_params:
+            if name == "W":
+                avg_grad_w = param.grad.abs().mean().item()
         # Add more code here ...
         optimizer.step()
 
@@ -138,7 +140,7 @@ def train(config):
                     config.train_steps, config.batch_size, examples_per_second,
                     accuracy, loss
             ))
-            csv_data = [step, loss, accuracy]
+            csv_data = [step, loss, accuracy, avg_grad_w]
             with open(cvs_file, 'a') as fd:
                 writer = csv.writer(fd)
                 writer.writerow(csv_data)
@@ -159,13 +161,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--model_type', type=str, default="LSTM", help="Model type, should be 'RNN' or 'LSTM'")
-    parser.add_argument('--input_length', type=int, default=40, help='Length of an input sequence')
+    parser.add_argument('--model_type', type=str, default="RNN", help="Model type, should be 'RNN' or 'LSTM'")
+    parser.add_argument('--input_length', type=int, default=5, help='Length of an input sequence')
     parser.add_argument('--input_dim', type=int, default=1, help='Dimensionality of input sequence')
     parser.add_argument('--num_classes', type=int, default=10, help='Dimensionality of output sequence')
     parser.add_argument('--num_hidden', type=int, default=128, help='Number of hidden units in the model')
     parser.add_argument('--batch_size', type=int, default=128, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--train_steps', type=int, default=10000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=10.0)
     parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
