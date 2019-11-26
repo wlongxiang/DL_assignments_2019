@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
+
 import torch
 
 import numpy as np
@@ -48,7 +50,9 @@ class TextDataset(data.Dataset):
         return ''.join(self._ix_to_char[ix] for ix in char_ix)
 
     def __len__(self):
-        return self._data_size
+        # we return maxsize to avoid dataloader prematurely stops
+        return sys.maxsize
+        # return self._data_size
 
     @property
     def vocab_size(self):
