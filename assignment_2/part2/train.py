@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import csv
 import os
 import time
 from datetime import datetime
@@ -33,7 +34,7 @@ from part2.dataset import TextDataset
 from part2.model import TextGenerationModel
 
 ################################################################################
-def predict(dataset, seq_length, model, device, tau=2.0):
+def predict(dataset, seq_length, model, device, tau=0):
     letter = dataset._char_to_ix[np.random.choice(dataset._chars)]
     letters = torch.tensor(letter).reshape([1, 1]).to(device)
     for i in range(seq_length-1):
@@ -41,7 +42,7 @@ def predict(dataset, seq_length, model, device, tau=2.0):
         if tau == 0:
             predcited_letter = raw_pred_letter_last.argmax(dim=1).reshape(1,-1)
         else:
-            letter_prob = torch.softmax(tau * raw_pred_letter_last, dim=1)
+            letter_prob = torch.softmax(raw_pred_letter_last/tau, dim=1)
             predcited_letter = torch.multinomial(letter_prob, 1).reshape([1, -1])
         letters = torch.cat((letters, predcited_letter),1)
     sentence = dataset.convert_to_string(letters.squeeze().numpy())
@@ -95,7 +96,20 @@ def train(config):
     criterion = nn.CrossEntropyLoss()  # fixme
     # optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)  # fixme
+    # init csv file
+    cvs_file = 'results/textgen_tau_{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.tau,
+                                                                                                config.seq_length,
+                                                                                                config.lstm_num_hidden,
+                                                                                                 config.learning_rate,
+                                                                                                 config.batch_size,
+                                                                                                 int(time.time()))
+    cols_data = ['step', 'train_loss', 'train_accuracy']
+    with open(cvs_file, 'a') as fd:
+        writer = csv.writer(fd)
+        writer.writerow(cols_data)
     text_gen = 'results/result_{}.txt'.format(int(time.time()))
+    step = 0
+    accuracy = 0
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
         # Only for time measurement of step through network
@@ -109,6 +123,9 @@ def train(config):
         batch_loss = criterion(outputs, batch_targets)
         batch_loss.backward()
         optimizer.step()
+        # clip the norm to avoid exploding gradients
+        torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.max_norm)
+
         loss = batch_loss.item()   # fixme
         accuracy = get_accuracy(outputs, batch_targets)  # fixme
 
@@ -124,6 +141,10 @@ def train(config):
                     config.train_steps, config.batch_size, examples_per_second,
                     accuracy, loss
             ))
+            csv_data = [step, loss, accuracy]
+            with open(cvs_file, 'a') as fd:
+                writer = csv.writer(fd)
+                writer.writerow(csv_data)
 
         if step > 1 and step % 5000 == 0:
             print("saving model at step {}, accu {}".format(step, accuracy))
@@ -132,18 +153,18 @@ def train(config):
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
             for i in range(5):
-                sentense = predict(dataset, config.seq_length, model, device)
+                sentense = predict(dataset, config.seq_length, model, device, tau=config.tau)
                 print(sentense)
                 with open(text_gen, 'a') as fp:
                     fp.write('{}:{}\n'.format(int(step), sentense))
             # another way
 
-
         if step == config.train_steps:
             # If you receive a PyTorch data-loader error, check this bug report:
             # https://github.com/pytorch/pytorch/pull/9655
             break
-
+    print("saving model at step {}, accu {}".format(step, accuracy))
+    torch.save(model, './checkpoints/final_step_{}_acc_{}.model'.format(step, accuracy))
     print('Done training.')
 
 
@@ -178,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
     parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
     parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--tau', type=int, default=1.0, help="apply sampling to the generation process")
 
     config = parser.parse_args()
 
