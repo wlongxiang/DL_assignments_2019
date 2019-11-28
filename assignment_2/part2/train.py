@@ -34,10 +34,19 @@ from part2.dataset import TextDataset
 from part2.model import TextGenerationModel
 
 ################################################################################
-def predict(dataset, seq_length, model, device, tau=0):
-    letter = dataset._char_to_ix[np.random.choice(dataset._chars)]
-    letters = torch.tensor(letter).reshape([1, 1]).to(device)
-    for i in range(seq_length-1):
+def predict(dataset, seq_length, model, device, custom_init_seq=None, tau=0):
+    if custom_init_seq:
+        letters = []
+        for char in custom_init_seq:
+            letter = dataset._char_to_ix[char]
+            letters.append(letter)
+        letters = torch.tensor(letters).reshape([1, len(custom_init_seq)]).to(device)
+    else:
+        letter = dataset._char_to_ix[np.random.choice(dataset._chars)]
+        letters = torch.tensor(letter).reshape([1, 1]).to(device)
+
+
+    for i in range(seq_length-letters.shape[1]):
         raw_pred_letter_last = model.forward(letters)[:, :, -1] # shape (1, vocab_size)
         if tau == 0:
             predcited_letter = raw_pred_letter_last.argmax(dim=1).reshape(1,-1)
@@ -152,8 +161,8 @@ def train(config):
 
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            for i in range(5):
-                sentense = predict(dataset, config.seq_length, model, device, tau=config.tau)
+            for i in range(1):
+                sentense = predict(dataset, config.seq_length, model, device, custom_init_seq="sleeping beauty is ", tau=config.tau)
                 print(sentense)
                 with open(text_gen, 'a') as fp:
                     fp.write('{}:{}\n'.format(int(step), sentense))
@@ -178,7 +187,7 @@ if __name__ == "__main__":
 
     # Model params
     parser.add_argument('--txt_file', type=str, default="./assets/book_EN_grimms_fairy_tails.txt", help="Path to a .txt file to train on")
-    parser.add_argument('--seq_length', type=int, default=30, help='Length of an input sequence')
+    parser.add_argument('--seq_length', type=int, default=40, help='Length of an input sequence')
     parser.add_argument('--lstm_num_hidden', type=int, default=128, help='Number of hidden units in the LSTM')
     parser.add_argument('--lstm_num_layers', type=int, default=2, help='Number of LSTM layers in the model')
 
@@ -199,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
     parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
     parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
-    parser.add_argument('--tau', type=int, default=1.0, help="apply sampling to the generation process")
+    parser.add_argument('--tau', type=int, default=0.5, help="apply sampling to the generation process")
 
     config = parser.parse_args()
 
