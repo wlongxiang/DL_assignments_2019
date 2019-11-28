@@ -67,7 +67,7 @@ def predict(dataset, seq_length, model, device, custom_init_seq=None, tau=0):
             letter_prob = torch.softmax(raw_pred_letter_last / tau, dim=1)
             predcited_letter = torch.multinomial(letter_prob, 1).reshape([1, -1])
         init_sequence = torch.cat((init_sequence, predcited_letter), 1)
-    sentence = dataset.convert_to_string(init_sequence.squeeze().numpy())
+    sentence = dataset.convert_to_string(init_sequence.squeeze().cpu().numpy())
     return sentence
 
 
