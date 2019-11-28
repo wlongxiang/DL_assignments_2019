@@ -21,6 +21,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 
+
 ################################################################################
 
 class LSTM(nn.Module):
@@ -29,24 +30,22 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         # Initialization here ...
         self.seq_length = seq_length
-        self.wg = nn.Parameter(torch.Tensor(num_hidden, input_dim + num_hidden))
+        self.input_dim = input_dim
+        self.num_hidden = num_hidden
+        self.num_classes = num_classes
+        self.device = device
         self.wgx = nn.Parameter(torch.Tensor(num_hidden, input_dim))
         self.wgh = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
-
         self.bg = nn.Parameter(torch.Tensor(num_hidden))
 
-        self.wi = nn.Parameter(torch.Tensor(num_hidden, input_dim+num_hidden))
         self.wix = nn.Parameter(torch.Tensor(num_hidden, input_dim))
         self.wih = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
-
         self.bi = nn.Parameter(torch.Tensor(num_hidden))
 
-        self.wf = nn.Parameter(torch.Tensor(num_hidden, input_dim + num_hidden))
         self.wfx = nn.Parameter(torch.Tensor(num_hidden, input_dim))
         self.wfh = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
         self.bf = nn.Parameter(torch.Tensor(num_hidden))
 
-        self.wo = nn.Parameter(torch.Tensor(num_hidden, input_dim + num_hidden))
         self.wox = nn.Parameter(torch.Tensor(num_hidden, input_dim))
         self.woh = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
         self.bo = nn.Parameter(torch.Tensor(num_hidden))
@@ -54,39 +53,43 @@ class LSTM(nn.Module):
         self.wp = nn.Parameter(torch.Tensor(num_classes, num_hidden))
         self.bp = nn.Parameter(torch.Tensor(num_classes))
 
-        for weight in [self.wg, self.wi, self.wf, self.wo, self.wp]:
-            nn.init.xavier_uniform_(weight)
-
-        for bias in [self.bg, self.bi, self.bo, self.bp]:
+        # let's try kaiming normal here
+        for w in [self.wgx, self.wgh,
+                  self.wix, self.wih,
+                  self.wfx, self.wfh,
+                  self.wox, self.woh,
+                  self.wp]:
+            nn.init.kaiming_normal_(w)
+        # init biases to zeros
+        for bias in [self.bg, self.bi, self.bf, self.bo, self.bp]:
             nn.init.zeros_(bias)
 
-        nn.init.ones_(self.bf)
-
-        self.register_buffer('h0', torch.zeros(1, num_hidden))
-        self.register_buffer('c0', torch.zeros(1, num_hidden))
-
     def forward(self, x):
+        """
+        Forward pass LSTM.
+
+        :param Tensor x: x input of shape (batch_size, seq_length)
+        :return Tensor: output of shape  (batch_size, vocab_size), vocab_size is 10 here because of 10 digits in numbers
+            each row contains 10 probability for each batch
+        """
         # Implementation here ...
+        # check seq length validity
         _seg_length = x.shape[1]
         if _seg_length != self.seq_length:
             raise ValueError("sequence length is {}, but {} is expected".format(_seg_length, self.seq_length))
+
+        # init hidden state and cell state
         batch_size = x.shape[0]
-        h_prev = self.h0.expand(batch_size, -1)
-        c_prev = self.c0
+        hidden_state_prev_seq = torch.zeros(size=(batch_size, self.num_hidden))
+        cell_state_prev_seq = torch.zeros(size=(batch_size, self.num_hidden))
 
         for t in range(self.seq_length):
-            x_t = x[:, t:t + 1]
-            x_h = torch.cat((x_t, h_prev), dim=-1)
-
-            g = torch.tanh(x_h.matmul(self.wg.t()) + self.bg)
-            i = torch.sigmoid(x_h.matmul(self.wi.t()) + self.bi)
-            f = torch.sigmoid(x_h.matmul(self.wf.t()) + self.bf)
-            o = torch.sigmoid(x_h.matmul(self.wo.t()) + self.bo)
-
-            c = g * i + c_prev * f
-            h_prev = torch.tanh(c) * o
-            c_prev = c
-
-        p = h_prev.matmul(self.wp.t()) + self.bp
-
-        return p
+            x_ts = x[:, t:t + 1]
+            g = torch.tanh(x_ts @ self.wgx.T + hidden_state_prev_seq @ self.wgh.T + self.bg)
+            i = torch.sigmoid(x_ts @ self.wix.T + hidden_state_prev_seq @ self.wih.T + self.bi)
+            f = torch.sigmoid(x_ts @ self.wfx.T + hidden_state_prev_seq @ self.wfh.T + self.bf)
+            o = torch.sigmoid(x_ts @ self.wox.T + hidden_state_prev_seq @ self.woh.T + self.bo)
+            cell_state_prev_seq = g * i + cell_state_prev_seq * f
+            hidden_state_prev_seq = torch.tanh(cell_state_prev_seq) * o
+        output = hidden_state_prev_seq @ self.wp.T + self.bp
+        return output
