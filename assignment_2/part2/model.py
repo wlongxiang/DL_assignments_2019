@@ -44,7 +44,7 @@ class TextGenerationModel(nn.Module):
         # x is of shape (batch_size, seq_length)
         # Implementation here...
         one_hot_encoder = torch.eye(self.vocabulary_size)
-        x_ohe = one_hot_encoder[x]
+        x_ohe = one_hot_encoder[x].to(self.device)
         # according to pytorch docs: input of shape (seq_length, batch_size, input_size)
         x_ohe = x_ohe.permute(1, 0, 2)
         lstm_output, _ = self.lstm_layers(x_ohe)
