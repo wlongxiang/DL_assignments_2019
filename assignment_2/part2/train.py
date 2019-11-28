@@ -83,7 +83,7 @@ def calc_accuracy(predictions, targets):
     """
     batch_size, sqe_length = targets.shape
     # dimension in vocab_size dimension to squeeze the one hot encoded results
-    _, y_pred = predictions.max(dim=1)
+    y_pred = predictions.argmax(dim=1)
     accuracy = torch.sum(y_pred == targets).item() / (batch_size * sqe_length)
     return accuracy
 
@@ -108,6 +108,9 @@ def train(config):
                            lr=config.learning_rate,
                            weight_decay=0)  # fixme
     # init csv file
+    for d in ["results", "checkpoints", "assets"]:
+        if not os.path.exists(d):
+            os.mkdir(d)
     cvs_file = 'results/textgen_tau_{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.tau,
                                                                                                        config.seq_length,
                                                                                                        config.lstm_num_hidden,
@@ -135,7 +138,7 @@ def train(config):
         batch_loss.backward()
         optimizer.step()
         # clip the norm to avoid exploding gradients
-        torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.max_norm)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.max_norm)
 
         loss = batch_loss.item()  # fixme
         accuracy = calc_accuracy(outputs, batch_targets)  # fixme
