@@ -133,6 +133,8 @@ def train(config):
         # Add more code here ...
         #######################################################
         optimizer.zero_grad()
+        batch_inputs = batch_inputs.to(device)
+        batch_targets = batch_targets.to(device)
         outputs = model(batch_inputs)
         batch_loss = criterion(outputs, batch_targets)
         batch_loss.backward()
