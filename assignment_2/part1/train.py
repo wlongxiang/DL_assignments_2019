@@ -46,7 +46,7 @@ def calc_accuracy(predictions, targets):
     :return float: accuracy
     """
     batch_size = targets.shape[0]
-    _, y_pred = predictions.max(dim=1)
+    y_pred = predictions.argmax(dim=1)
     accuracy = torch.sum((y_pred == targets)).item() / batch_size
     ########################
     # END OF YOUR CODE    #
