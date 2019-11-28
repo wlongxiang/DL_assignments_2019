@@ -103,8 +103,10 @@ def train(config):
                                 lstm_num_layers=config.lstm_num_layers, device=config.device).to(device)  # fixme
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss()  # fixme
-    # optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)  # fixme
+    # here we use the adam optimizer
+    optimizer = optim.Adam(model.parameters(),
+                           lr=config.learning_rate,
+                           weight_decay=0)  # fixme
     # init csv file
     cvs_file = 'results/textgen_tau_{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.tau,
                                                                                                        config.seq_length,
