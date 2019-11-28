@@ -151,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--train_steps', type=int, default=10000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=10.0)
-    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
 
     config = parser.parse_args()
 
