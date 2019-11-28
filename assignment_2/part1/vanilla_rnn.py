@@ -18,8 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
-
 import torch
 import torch.nn as nn
 
@@ -32,6 +30,8 @@ class VanillaRNN(nn.Module):
         super(VanillaRNN, self).__init__()
         # Initialization here ...
         self.seq_length = seq_length
+        self.device = device
+        self.input_dim = input_dim
         # input-to-hidden matrix
         self.U = nn.Parameter(torch.Tensor(num_hidden, input_dim))
         self.bh = nn.Parameter(torch.Tensor(num_hidden))
@@ -39,14 +39,12 @@ class VanillaRNN(nn.Module):
         self.bp = nn.Parameter(torch.Tensor(num_classes))
         self.W = nn.Parameter(torch.Tensor(num_hidden, num_hidden), requires_grad=True)
         # init
-        # it show great importance by experiment here that weights need to be
-        # somehow have a small negtive mean, otherwise training just fails
-        stdv = 1.0 / math.sqrt(num_hidden)
-        for weight in [self.U, self.W, self.V]:
-            nn.init.uniform_(weight, -stdv, stdv)
+        # vanilla rnn seems to be sensitive to weights init, xavier normal seems to work well
+        nn.init.xavier_normal_(self.U)
+        nn.init.xavier_normal_(self.V)
+        nn.init.xavier_normal_(self.W)
         nn.init.zeros_(self.bh)
         nn.init.zeros_(self.bp)
-        self.hidden_init = torch.zeros_like(self.bh)
 
     def forward(self, x):
         # Implementation here ...
@@ -55,15 +53,16 @@ class VanillaRNN(nn.Module):
             raise ValueError("sequence length is {}, but {} is expected".format(_seg_length, self.seq_length))
         batch_size = x.shape[0]
 
-        h_prev = self.hidden_init
+        hidden_state_prev_seq = torch.zeros_like(self.bh)
         for t in range(self.seq_length):
-            # x_t represents the value at specific time step t, with length of batch size
-            x_t = x[:, t:t + 1]
-            h_prev = torch.tanh(x_t.matmul(self.U.t())
-                                + h_prev.matmul(self.W.t())
-                                + self.bh)
-
-            p = h_prev.matmul(self.V.t()) + self.bp
+            # x_ts represents the value at specific time step t, with length of batch size
+            x_ts = x[:, t:t + self.input_dim].reshape(batch_size, self.input_dim)
+            # apply a linear transform with hidden state and bias
+            linear_transformed = x_ts @ self.U.data.T + hidden_state_prev_seq @ self.W.data.T + self.bh
+            # apply tanh non-linearity
+            hidden_state_prev_seq = torch.tanh(linear_transformed)
+            # apply output linear transform with bias
+            output = hidden_state_prev_seq @ self.V.T + self.bp
         # p represents the ouput at the last time step here, note that the softmax part is done in the loss function
         # do not include it in the output layer
-        return p
+        return output
