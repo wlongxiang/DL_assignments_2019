@@ -26,26 +26,29 @@ class TextGenerationModel(nn.Module):
 
     def __init__(self, batch_size, seq_length, vocabulary_size,
                  lstm_num_hidden=256, lstm_num_layers=2, device='cuda:0'):
-
         super(TextGenerationModel, self).__init__()
         # Initialization here...
-        self.lstm = nn.LSTM(input_size=vocabulary_size, hidden_size=lstm_num_hidden, num_layers=lstm_num_layers)
-        self.linear = nn.Linear(in_features=lstm_num_hidden, out_features=vocabulary_size)
         self.seq_length = seq_length
         self.batch_size = batch_size
         self.device = device
+        self.lstm_num_layers = lstm_num_layers
+        self.lstm_num_hidden = lstm_num_hidden
         self.vocabulary_size = vocabulary_size
-        one_hot_codes = torch.eye(self.vocabulary_size)
-        self.register_buffer('one_hot_codes', one_hot_codes)
+        self.lstm_layers = nn.LSTM(input_size=self.vocabulary_size,
+                                   hidden_size=self.lstm_num_hidden,
+                                   num_layers=self.lstm_num_layers)
+        # this is the full connected layer to produce final output
+        self.fc_layer = nn.Linear(in_features=self.lstm_num_hidden, out_features=self.vocabulary_size)
 
     def forward(self, x):
         # x is of shape (batch_size, seq_length)
         # Implementation here...
-        x_one_hot = self.one_hot_codes[x]
+        one_hot_encoder = torch.eye(self.vocabulary_size)
+        x_ohe = one_hot_encoder[x]
         # according to pytorch docs: input of shape (seq_length, batch_size, input_size)
-        x_one_hot= x_one_hot.permute(1,0,2)
-        out, _ = self.lstm(x_one_hot)
-        p = self.linear(out)
+        x_ohe = x_ohe.permute(1, 0, 2)
+        lstm_output, _ = self.lstm_layers(x_ohe)
+        fc_out = self.fc_layer(lstm_output)
         # permute output to be of shape (batch_size, input_size, seq_length)
-        p=p.permute(1,2,0)
-        return p
+        out = fc_out.permute(1, 2, 0)
+        return out
