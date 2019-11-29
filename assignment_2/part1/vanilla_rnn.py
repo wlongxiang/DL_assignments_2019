@@ -65,4 +65,4 @@ class VanillaRNN(nn.Module):
             output = hidden_state_prev_seq @ self.V.T + self.bp
         # p represents the ouput at the last time step here, note that the softmax part is done in the loss function
         # do not include it in the output layer
-        return output
+        return hidden_state_prev_seq, output

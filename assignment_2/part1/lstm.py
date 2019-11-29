@@ -92,4 +92,4 @@ class LSTM(nn.Module):
             cell_state_prev_seq = g * i + cell_state_prev_seq * f
             hidden_state_prev_seq = torch.tanh(cell_state_prev_seq) * o
         output = hidden_state_prev_seq @ self.wp.T + self.bp
-        return output
+        return hidden_state_prev_seq, output

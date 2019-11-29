@@ -20,17 +20,16 @@ from __future__ import print_function
 
 import argparse
 import csv
+import os
 import time
 from datetime import datetime
-import numpy as np
-
 import torch
 from torch import optim, nn
 from torch.utils.data import DataLoader
 
-from part1.dataset import PalindromeDataset
-from part1.vanilla_rnn import VanillaRNN
-from part1.lstm import LSTM
+from dataset import PalindromeDataset
+from vanilla_rnn import VanillaRNN
+from lstm import LSTM
 
 
 # You may want to look into tensorboard for logging
@@ -77,6 +76,9 @@ def train(config):
     criterion = nn.CrossEntropyLoss()  # fixme
     optimizer = optim.RMSprop(model.parameters(), config.learning_rate)  # fixme
     # init csv file
+    for d in ["results", "checkpoints", "assets"]:
+        if not os.path.exists(d):
+            os.mkdir(d)
     cvs_file = 'results/w_grad_{}_inputlength_{}_hiddenunits_{}_lr_{}_batchsize_{}_{}.csv'.format(config.model_type,
                                                                                                   config.input_length,
                                                                                                   config.num_hidden,
@@ -97,7 +99,7 @@ def train(config):
         # voncert tensors to device for gpu training
         batch_inputs = batch_inputs.to(device)
         batch_targets = batch_targets.to(device)
-        model_outputs = model.forward(batch_inputs)
+        _, model_outputs = model.forward(batch_inputs)
         loss = criterion(model_outputs, batch_targets)
         loss.backward()
 
@@ -115,7 +117,7 @@ def train(config):
         t2 = time.time()
         examples_per_second = config.batch_size / float(t2 - t1)
 
-        if step % 10 == 0:
+        if step % 10 == 0 and step > 0:
             print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                   "Accuracy = {:.2f}, Loss = {:.3f}".format(
                 datetime.now().strftime("%Y-%m-%d %H:%M"), step,
@@ -142,7 +144,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--model_type', type=str, default="LSTM", help="Model type, should be 'RNN' or 'LSTM'")
+    parser.add_argument('--model_type', type=str, default="RNN", help="Model type, should be 'RNN' or 'LSTM'")
     parser.add_argument('--input_length', type=int, default=5, help='Length of an input sequence')
     parser.add_argument('--input_dim', type=int, default=1, help='Dimensionality of input sequence')
     parser.add_argument('--num_classes', type=int, default=10, help='Dimensionality of output sequence')
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--train_steps', type=int, default=10000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=10.0)
-    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
 
     config = parser.parse_args()
 
