@@ -63,6 +63,7 @@ class LSTM(nn.Module):
         # init biases to zeros
         for bias in [self.bg, self.bi, self.bf, self.bo, self.bp]:
             nn.init.zeros_(bias)
+        self.hidden_states = []
 
     def forward(self, x):
         """
@@ -81,6 +82,7 @@ class LSTM(nn.Module):
         # init hidden state and cell state
         batch_size = x.shape[0]
         hidden_state_prev_seq = torch.zeros(size=(batch_size, self.num_hidden))
+        hidden_state_prev_seq.requires_grad_(True)
         cell_state_prev_seq = torch.zeros(size=(batch_size, self.num_hidden))
 
         for t in range(self.seq_length):
@@ -91,5 +93,7 @@ class LSTM(nn.Module):
             o = torch.sigmoid(x_ts @ self.wox.T + hidden_state_prev_seq @ self.woh.T + self.bo)
             cell_state_prev_seq = g * i + cell_state_prev_seq * f
             hidden_state_prev_seq = torch.tanh(cell_state_prev_seq) * o
+            self.hidden_states.append(hidden_state_prev_seq)
+            hidden_state_prev_seq.retain_grad()
         output = hidden_state_prev_seq @ self.wp.T + self.bp
         return hidden_state_prev_seq, output
