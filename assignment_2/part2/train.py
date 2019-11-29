@@ -30,8 +30,8 @@ import torch.optim as optim
 from torch import nn
 from torch.utils.data import DataLoader
 
-from part2.dataset import TextDataset
-from part2.model import TextGenerationModel
+from dataset import TextDataset
+from model import TextGenerationModel
 
 
 ################################################################################
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--txt_file', type=str, default="./assets/book_EN_grimms_fairy_tails.txt",
+    parser.add_argument('--txt_file', type=str, default="./part2/assets/book_EN_grimms_fairy_tails.txt",
                         help="Path to a .txt file to train on")
     parser.add_argument('--seq_length', type=int, default=40, help='Length of an input sequence')
     parser.add_argument('--lstm_num_hidden', type=int, default=128, help='Number of hidden units in the LSTM')
