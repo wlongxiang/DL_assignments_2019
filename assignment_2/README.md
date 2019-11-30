@@ -72,8 +72,6 @@ Replace `lastname` with your last name. In case you have created any other pytho
 Finally, please submit your zip-file on Canvas.
 
 The deadline for the assignment is the **29 November, 23:59** (extended from 27 November).
-
-
 ### Bonus: on chinese text
 I have tried to use the LSTM approach to generate text on 红楼梦, `the red mansion` (not sure
 about the transalation).
