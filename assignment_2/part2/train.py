@@ -167,8 +167,8 @@ def train(config):
 
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            for i in range(1):
-                sentense = predict(dataset, config.seq_length, model, device, custom_init_seq="sleeping beauty is ",
+            for i in range(5):
+                sentense = predict(dataset, config.seq_length, model, device, custom_init_seq=None,
                                    tau=config.tau)
                 print(sentense)
                 with open(text_gen, 'a') as fp:
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--txt_file', type=str, default="./part2/assets/book_EN_grimms_fairy_tails.txt",
+    parser.add_argument('--txt_file', type=str, default="./assets/红楼梦.txt",
                         help="Path to a .txt file to train on")
     parser.add_argument('--seq_length', type=int, default=40, help='Length of an input sequence')
     parser.add_argument('--lstm_num_hidden', type=int, default=128, help='Number of hidden units in the LSTM')
