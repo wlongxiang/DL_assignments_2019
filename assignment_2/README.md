@@ -73,3 +73,24 @@ Finally, please submit your zip-file on Canvas.
 
 The deadline for the assignment is the **29 November, 23:59** (extended from 27 November).
 
+
+### Bonus: on chinese text
+I have tried to use the LSTM approach to generate text on 红楼梦, `the red mansion` (not sure
+about the transalation).
+
+It has:
+```
+Initialize dataset with 855332 characters, 4532 unique.
+
+```
+
+Note that due to the fact that chinese language is character based, unlike the English language
+which has only 26 characters, it has 4532 unique tokens. The large number of tokens
+makes it hard to train computationally, but in principle it is the same problem. Another
+fact to point out is that chinese language does not have a natural between word separator like
+space in English. For exmaple `我爱你` is mapped to three words `I Love You`, but it has no space
+between.
+
+
+
+
