@@ -7,11 +7,23 @@ from torchvision.utils import make_grid
 
 from datasets.bmnist import bmnist
 
+IN_FEATURES = 28*28
 
 class Encoder(nn.Module):
-
+    """
+    In the original Kingma paper, MLPs with Gaussian outputs are used as probalistic encoders (C.2). More specifically,
+    Firstly inputs are passed through a linear layer then a tanh non-linearity
+    Then a linear layer is used for calculate the mu of gaussian output,
+    And another linear layer is used for generating log variances.
+    """
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
+        self.linear_hidden_layer = nn.Linear(in_features=IN_FEATURES, out_features=hidden_dim)
+        self.nonlinear_hidden_layer = torch.tanh
+        self.linear_mu_layer = nn.Linear(in_features=hidden_dim, out_features=z_dim)
+        self.linear_var_layer = nn.Linear(in_features=hidden_dim, out_features=z_dim)
+        self.log_variance = None
+
 
     def forward(self, input):
         """
@@ -20,9 +32,12 @@ class Encoder(nn.Module):
         Returns mean and std with shape [batch_size, z_dim]. Make sure
         that any constraints are enforced.
         """
-        mean, std = None, None
-        raise NotImplementedError()
+        hidden_output = self.linear_hidden_layer(input)
+        hidden_output = self.nonlinear_hidden_layer(hidden_output)
 
+        mean = self.linear_mu_layer(hidden_output)
+        self.log_variance = self.linear_var_layer(hidden_output)
+        std = torch.sqrt(torch.exp(self.log_variance))
         return mean, std
 
 
@@ -30,6 +45,10 @@ class Decoder(nn.Module):
 
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
+        self.linear_hidden_layer = nn.Linear(in_features=z_dim, out_features=hidden_dim)
+        self.nonlinear_hidden_layer = torch.tanh
+        self.linear_mu_layer = nn.Linear(in_features=hidden_dim, out_features=IN_FEATURES)
+        self.sigmoid = torch.sigmoid
 
     def forward(self, input):
         """
@@ -37,9 +56,11 @@ class Decoder(nn.Module):
 
         Returns mean with shape [batch_size, 784].
         """
-        mean = None
-        raise NotImplementedError()
+        hidden_output = self.linear_hidden_layer(input)
+        hidden_output = self.nonlinear_hidden_layer(hidden_output)
 
+        mean = self.linear_mu_layer(hidden_output)
+        mean = self.sigmoid(mean)
         return mean
 
 
@@ -58,7 +79,15 @@ class VAE(nn.Module):
         negative average elbo for the given batch.
         """
         average_negative_elbo = None
-        raise NotImplementedError()
+        mean, std = self.encoder(input)
+        # now we have the mean and std of the gaussian, we can perform a sampling from it using the reparametric trick
+        samples_z = mean + torch.rand_like(mean) * std
+        # now we pass the samples to decoder to get the reconstructed x_hat
+        x_hat = self.decoder(samples_z)
+        # get BCE for binary cross entropy
+        reconstruction_loss = nn.BCELoss().forward(x_hat, input).sum(dim=-1)
+        regularization_loss = 0.5 * (torch.pow(std, 2) + mean**2 - self.encoder.log_variance - 1).sum(dim=-1)
+        average_negative_elbo = reconstruction_loss.mean() + regularization_loss.mean()
         return average_negative_elbo
 
     def sample(self, n_samples):
@@ -68,8 +97,9 @@ class VAE(nn.Module):
         used to plot the data manifold).
         """
         sampled_ims, im_means = None, None
-        raise NotImplementedError()
-
+        z_init = torch.randn((n_samples, self.z_dim))
+        im_means = self.decoder.forward(z_init)
+        sampled_ims = torch.bernoulli(im_means)
         return sampled_ims, im_means
 
 
@@ -80,9 +110,19 @@ def epoch_iter(model, data, optimizer):
 
     Returns the average elbo for the complete epoch.
     """
-    average_epoch_elbo = None
-    raise NotImplementedError()
+    average_epoch_elbo = 0
+    idx = 0
+    for idx, batch_img in enumerate(data):
+        # batch_img = batch_img.to(device)
+        avg_elbo_batch = model.forward(batch_img.view(-1, IN_FEATURES))
 
+        average_epoch_elbo += avg_elbo_batch
+
+        if model.training:
+            optimizer.zero_grad()
+            avg_elbo_batch.backward()
+            optimizer.step()
+    average_epoch_elbo = average_epoch_elbo / idx
     return average_epoch_elbo
 
 
