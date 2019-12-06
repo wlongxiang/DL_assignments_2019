@@ -85,7 +85,7 @@ class VAE(nn.Module):
         # now we pass the samples to decoder to get the reconstructed x_hat
         x_hat = self.decoder(samples_z)
         # get BCE for binary cross entropy
-        reconstruction_loss = nn.BCELoss().forward(x_hat, input).sum(dim=-1)
+        reconstruction_loss = nn.BCELoss(reduction='none').forward(x_hat, input).sum(dim=-1)
         regularization_loss = 0.5 * (torch.pow(std, 2) + mean**2 - self.encoder.log_variance - 1).sum(dim=-1)
         average_negative_elbo = reconstruction_loss.mean() + regularization_loss.mean()
         return average_negative_elbo
