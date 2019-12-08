@@ -29,7 +29,7 @@ class Generator(nn.Module):
             nn.BatchNorm1d(num_features=1024),
             nn.LeakyReLU(negative_slope=0.2),
             nn.Linear(in_features=1024, out_features=784),
-            nn.Tanh()
+            nn.Tanh()  # note that since the training images are normalized to [-1,1], tanh is a natural choice here
         )
 
         # Construct generator. You are free to experiment with your model,
@@ -62,7 +62,7 @@ class Discriminator(nn.Module):
             nn.Linear(in_features=512, out_features=256),
             nn.LeakyReLU(negative_slope=0.2),
             nn.Linear(in_features=256, out_features=1),
-            # nn.ReLU()
+            nn.Sigmoid()
         )
         # Construct distriminator. You are free to experiment with your model,
         # but the following is a good start:
@@ -104,14 +104,17 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     with open(cvs_file, 'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(cols_data)
-    train_iters = 0
-    avg_loss_d = 0
-    avg_loss_g = 0
-    n_epochs = args.n_epochs
+    # init some values
+    total_batches = len(dataloader)
+    avg_loss_discriminator = 0
+    avg_loss_generator = 0
+    # loss function
+    # note the difference between BCELoss and BCEwithLogitsLoss
+    # the former needs sigmoid inputs, while the latter doesn't
+    binary_cross_entropy_loss = nn.BCELoss()
+    for epoch in range(args.n_epochs):
 
-    binary_cross_entropy_loss = nn.BCEWithLogitsLoss()
-    for epoch in range(1, n_epochs + 1):
-        if epoch == 1 or epoch % args.save_epochs == 0:
+        if epoch == 0 or epoch % args.save_interval == 0:
             fname = 'samples_epoch_{}_{}.png'.format(epoch, ts)
             save_samples(generator, fname)
 
@@ -144,27 +147,28 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             generated_imgs_batch = generate_samples(generator, args.batch_size)
             optimizer_G.zero_grad()
             preds_generated_imgs = discriminator(generated_imgs_batch)
+            # the loss of generator is to mimick the training images
             loss_g = binary_cross_entropy_loss(preds_generated_imgs, targets_training_imgs)
             loss_g.backward()
             optimizer_G.step()
             # -------------------
 
-            train_iters += 1
-            avg_loss_d += loss_discminator.item() / args.log_interval
-            avg_loss_g += loss_g.item() / args.log_interval
-
-            if train_iters % args.log_interval == 0:
-                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'.format(epoch, n_epochs,
-                                                                                                 i + 1, len(dataloader),
-                                                                                                 avg_loss_d,
-                                                                                                 avg_loss_g))
-                csv_data = [epoch, i + 1, avg_loss_g, avg_loss_d]
+            avg_loss_discriminator += loss_discminator.item() / args.print_interval
+            avg_loss_generator += loss_g.item() / args.print_interval
+            batch_num = i + 1
+            if batch_num % args.print_interval == 0:
+                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'.format(epoch, args.n_epochs,
+                                                                                                 batch_num,
+                                                                                                 total_batches,
+                                                                                                 avg_loss_discriminator,
+                                                                                                 avg_loss_generator))
+                csv_data = [epoch, i + 1, avg_loss_generator, avg_loss_discriminator]
                 with open(cvs_file, 'a') as fd:
                     writer = csv.writer(fd)
                     writer.writerow(csv_data)
 
-                avg_loss_d = 0
-                avg_loss_g = 0
+                avg_loss_discriminator = 0
+                avg_loss_generator = 0
 
 
 def main():
@@ -204,12 +208,10 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--latent_dim', type=int, default=100,
                         help='dimensionality of the latent space')
-    parser.add_argument('--save_interval', type=int, default=500,
+    parser.add_argument('--save_interval', type=int, default=5,
                         help='save every SAVE_INTERVAL iterations')
-    parser.add_argument('--log_interval', type=int, default=50,
-                        help='log every LOG_INTERVAL iterations')
-    parser.add_argument('--save_epochs', type=int, default=5,
-                        help='save samples every SAVE_EPOCHS epochs')
+    parser.add_argument('--print_interval', type=int, default=50,
+                        help='log every print_interval iterations')
     args = parser.parse_args()
 
     main()
