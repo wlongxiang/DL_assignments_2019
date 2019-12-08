@@ -1,6 +1,6 @@
 import argparse
 import os
-
+import time
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -88,13 +88,14 @@ def sample_generator(generator, n_samples, z=None):
 
 
 def save_samples(generator, fname):
-    samples = sample_generator(generator, n_samples=25).detach().cpu()
+    samples = sample_generator(generator, n_samples=25).detach()
     samples = samples.reshape(-1, 1, 28, 28) * 0.5 + 0.5
 
     grid = make_grid(samples, nrow=5)[0]
     plt.cla()
-    plt.imshow(grid.numpy(), cmap='binary')
+    plt.imshow(grid.cpu().numpy(), cmap='binary')
     plt.axis('off')
+    fname = "{}_{}".format(int(time.time()), fname)
     img_path = os.path.join(os.path.dirname(__file__), 'ganresults', fname)
     plt.savefig(img_path)
     # os.remove(img_path)
@@ -149,7 +150,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             avg_loss_g += loss_g.item() / args.log_interval
 
             if train_iters % args.log_interval == 0:
-                print(log.format(epoch + 1, n_epochs,
+                print(log.format(epoch, n_epochs,
                                  i + 1, len(dataloader),
                                  avg_loss_d, avg_loss_g))
                 avg_loss_d = 0
@@ -168,8 +169,8 @@ def main():
                             batch_size=args.batch_size, shuffle=True)
 
     # Initialize models and optimizers
-    generator = Generator(latent_dim=args.latent_dim)
-    discriminator = Discriminator()
+    generator = Generator(latent_dim=args.latent_dim).to(device)
+    discriminator = Discriminator().to(device)
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=args.lr)
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=args.lr)
 
@@ -195,7 +196,7 @@ if __name__ == "__main__":
                         help='save every SAVE_INTERVAL iterations')
     parser.add_argument('--log_interval', type=int, default=50,
                         help='log every LOG_INTERVAL iterations')
-    parser.add_argument('--save_epochs', type=int, default=20,
+    parser.add_argument('--save_epochs', type=int, default=5,
                         help='save samples every SAVE_EPOCHS epochs')
     args = parser.parse_args()
 
