@@ -19,15 +19,19 @@ class Generator(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(in_features=latent_dim, out_features=128),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=128, out_features=256),
             nn.BatchNorm1d(num_features=256),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=256, out_features=512),
             nn.BatchNorm1d(num_features=512),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=512, out_features=1024),
             nn.BatchNorm1d(num_features=1024),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=1024, out_features=784),
             nn.Tanh()  # note that since the training images are normalized to [-1,1], tanh is a natural choice here
         )
@@ -59,8 +63,10 @@ class Discriminator(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(in_features=784, out_features=512),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=512, out_features=256),
             nn.LeakyReLU(negative_slope=0.2),
+
             nn.Linear(in_features=256, out_features=1),
             nn.Sigmoid()
         )
@@ -83,7 +89,7 @@ def generate_samples(model, n_samples):
     return model(z)
 
 
-def save_samples(model, file_name):
+def generate_and_save_samples(model, file_name):
     samples = generate_samples(model, n_samples=25).detach()
     samples = samples.reshape(-1, 1, 28, 28) * 0.5 + 0.5
     grid = make_grid(samples, nrow=5)[0]
@@ -116,7 +122,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
         if epoch == 0 or epoch % args.save_interval == 0:
             fname = 'samples_epoch_{}_{}.png'.format(epoch, ts)
-            save_samples(generator, fname)
+            generate_and_save_samples(generator, fname)
 
         for i, (imgs, _) in enumerate(dataloader):
             # Train Discriminator
@@ -132,7 +138,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             preds_generated_imgs = discriminator(generated_imgs_batch)
             targets_training_imgs = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
             targets_generated_imgs = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
-            # One-sided label smoothing
+            # One-sided label smoothing, this trick stabling the training
             targets_training_imgs.uniform_(0.7, 1.2)
             # for training images the disriminator target is 1, for fake images the disriminator target is 0
             loss_discminator = binary_cross_entropy_loss(preds_training_imgs, targets_training_imgs) + \
@@ -157,11 +163,12 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             avg_loss_generator += loss_g.item() / args.print_interval
             batch_num = i + 1
             if batch_num % args.print_interval == 0:
-                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'.format(epoch, args.n_epochs,
-                                                                                                 batch_num,
-                                                                                                 total_batches,
-                                                                                                 avg_loss_discriminator,
-                                                                                                 avg_loss_generator))
+                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_discriminator: {:.6f} loss_generator: {:.6f}'.format(
+                    epoch, args.n_epochs,
+                    batch_num,
+                    total_batches,
+                    avg_loss_discriminator,
+                    avg_loss_generator))
                 csv_data = [epoch, i + 1, avg_loss_generator, avg_loss_discriminator]
                 with open(cvs_file, 'a') as fd:
                     writer = csv.writer(fd)
