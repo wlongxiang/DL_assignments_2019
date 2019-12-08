@@ -78,50 +78,38 @@ class Discriminator(nn.Module):
         return self.model(img)
 
 
-def sample_generator(generator, n_samples, z=None):
-    """Obtain samples from the generator. The returned tensor is on device and
-    attached to the graph, so it has requires_grad=True """
-    if z is None:
-        z = torch.randn(n_samples, args.latent_dim).to(device)
-
-    samples = generator(z)
-    return samples
+def generate_samples(model, n_samples):
+    z = torch.randn(n_samples, args.latent_dim).to(device)
+    return model(z)
 
 
-def save_samples(generator, fname):
-    samples = sample_generator(generator, n_samples=25).detach()
+def save_samples(model, file_name):
+    samples = generate_samples(model, n_samples=25).detach()
     samples = samples.reshape(-1, 1, 28, 28) * 0.5 + 0.5
-
     grid = make_grid(samples, nrow=5)[0]
     plt.cla()
     plt.imshow(grid.cpu().numpy(), cmap='binary')
     plt.axis('off')
-    img_path = os.path.join(os.path.dirname(__file__), 'ganresults', fname)
+    img_path = os.path.join(os.path.dirname(__file__), 'ganresults', file_name)
     plt.savefig(img_path)
-    # os.remove(img_path)
 
 
 def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     # init logging
     if not os.path.exists("ganresults"):
         os.mkdir("ganresults")
-    ts= int(time.time())
+    ts = int(time.time())
     cvs_file = 'ganresults/result_{}.csv'.format(ts)
     cols_data = ['epoch', 'batch', 'gen_loss', 'disc_loss']
     with open(cvs_file, 'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(cols_data)
-
-    ones = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
-    zeros = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
-    bce_loss = nn.BCEWithLogitsLoss()
-
     train_iters = 0
     avg_loss_d = 0
     avg_loss_g = 0
-    log = 'epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'
     n_epochs = args.n_epochs
 
+    binary_cross_entropy_loss = nn.BCEWithLogitsLoss()
     for epoch in range(1, n_epochs + 1):
         if epoch == 1 or epoch % args.save_epochs == 0:
             fname = 'samples_epoch_{}_{}.png'.format(epoch, ts)
@@ -130,41 +118,47 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
         for i, (imgs, _) in enumerate(dataloader):
             # Train Discriminator
             # -------------------
-            imgs = imgs.reshape(args.batch_size, -1).to(device)
-            samples = sample_generator(generator, args.batch_size).detach()
+            training_imgs_batch = imgs.reshape(args.batch_size, -1).to(device)
+            generated_imgs_batch = generate_samples(generator, args.batch_size).detach()
             optimizer_D.zero_grad()
             # why somehow there are images not of the same size????
-            if imgs.shape[1] != 784:
+            if training_imgs_batch.shape[1] != 784:
                 print("!!!! image shap is {}, not of 784!!".format(imgs.shape[1]))
                 break
-            pos_preds = discriminator(imgs)
-            neg_preds = discriminator(samples)
+            preds_training_imgs = discriminator(training_imgs_batch)
+            preds_generated_imgs = discriminator(generated_imgs_batch)
+            targets_training_imgs = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
+            targets_generated_imgs = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
             # One-sided label smoothing
-            ones.uniform_(0.7, 1.2)
-            loss_d = bce_loss(pos_preds, ones) + bce_loss(neg_preds, zeros)
-            loss_d.backward()
+            targets_training_imgs.uniform_(0.7, 1.2)
+            # for training images the disriminator target is 1, for fake images the disriminator target is 0
+            loss_discminator = binary_cross_entropy_loss(preds_training_imgs, targets_training_imgs) + \
+                               binary_cross_entropy_loss(preds_generated_imgs, targets_generated_imgs)
+
+            loss_discminator.backward()
             optimizer_D.step()
             # -------------------
 
             # Train Generator
             # -------------------
-            samples = sample_generator(generator, args.batch_size)
+            generated_imgs_batch = generate_samples(generator, args.batch_size)
             optimizer_G.zero_grad()
-            neg_preds = discriminator(samples)
-            loss_g = bce_loss(neg_preds, ones)
+            preds_generated_imgs = discriminator(generated_imgs_batch)
+            loss_g = binary_cross_entropy_loss(preds_generated_imgs, targets_training_imgs)
             loss_g.backward()
             optimizer_G.step()
             # -------------------
 
             train_iters += 1
-            avg_loss_d += loss_d.item() / args.log_interval
+            avg_loss_d += loss_discminator.item() / args.log_interval
             avg_loss_g += loss_g.item() / args.log_interval
 
             if train_iters % args.log_interval == 0:
-                print(log.format(epoch, n_epochs,
-                                 i + 1, len(dataloader),
-                                 avg_loss_d, avg_loss_g))
-                csv_data = [epoch, i+1, avg_loss_g, avg_loss_d]
+                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'.format(epoch, n_epochs,
+                                                                                                 i + 1, len(dataloader),
+                                                                                                 avg_loss_d,
+                                                                                                 avg_loss_g))
+                csv_data = [epoch, i + 1, avg_loss_g, avg_loss_d]
                 with open(cvs_file, 'a') as fd:
                     writer = csv.writer(fd)
                     writer.writerow(csv_data)
@@ -202,7 +196,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=200,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=64,
+    # there are 60k inputs in MNIST, try to set the batch size to be divisible, otherwise there are strange batch at
+    # end of epoch
+    parser.add_argument('--batch_size', type=int, default=60,
                         help='batch size')
     parser.add_argument('--lr', type=float, default=0.0002,
                         help='learning rate')
