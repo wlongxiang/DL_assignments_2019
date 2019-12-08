@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 import time
 import torch
@@ -95,13 +96,22 @@ def save_samples(generator, fname):
     plt.cla()
     plt.imshow(grid.cpu().numpy(), cmap='binary')
     plt.axis('off')
-    fname = "{}_{}".format(int(time.time()), fname)
     img_path = os.path.join(os.path.dirname(__file__), 'ganresults', fname)
     plt.savefig(img_path)
     # os.remove(img_path)
 
 
 def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
+    # init logging
+    if not os.path.exists("ganresults"):
+        os.mkdir("ganresults")
+    ts= int(time.time())
+    cvs_file = 'ganresults/result_{}.csv'.format(ts)
+    cols_data = ['epoch', 'batch', 'gen_loss', 'disc_loss']
+    with open(cvs_file, 'a') as fd:
+        writer = csv.writer(fd)
+        writer.writerow(cols_data)
+
     ones = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
     zeros = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
     bce_loss = nn.BCEWithLogitsLoss()
@@ -114,7 +124,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
     for epoch in range(1, n_epochs + 1):
         if epoch == 1 or epoch % args.save_epochs == 0:
-            fname = 'samples_{:d}.png'.format(epoch)
+            fname = 'samples_epoch_{}_{}.png'.format(epoch, ts)
             save_samples(generator, fname)
 
         for i, (imgs, _) in enumerate(dataloader):
@@ -123,6 +133,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             imgs = imgs.reshape(args.batch_size, -1).to(device)
             samples = sample_generator(generator, args.batch_size).detach()
             optimizer_D.zero_grad()
+            # why somehow there are images not of the same size????
             if imgs.shape[1] != 784:
                 print("!!!! image shap is {}, not of 784!!".format(imgs.shape[1]))
                 break
@@ -153,6 +164,11 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
                 print(log.format(epoch, n_epochs,
                                  i + 1, len(dataloader),
                                  avg_loss_d, avg_loss_g))
+                csv_data = [epoch, i+1, avg_loss_g, avg_loss_d]
+                with open(cvs_file, 'a') as fd:
+                    writer = csv.writer(fd)
+                    writer.writerow(csv_data)
+
                 avg_loss_d = 0
                 avg_loss_g = 0
 
