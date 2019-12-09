@@ -272,7 +272,7 @@ def save_samples(model, fname, _run):
     img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
     plt.savefig(img_path)
     _run.add_artifact(img_path, fname)
-    os.remove(img_path)
+    # os.remove(img_path)
 
 
 @ex.main
@@ -285,7 +285,7 @@ def main(epochs, timestamp, _run):
 
     for epoch in range(1, epochs + 1):
         # Save samples at beginning, 50% and 100% of training
-        if int(100 * epoch / epochs) in [int(100 / epochs), 50, 100]:
+        if int(100 * epoch / epochs) in [int(100 / epochs), 10, 20, 30, 40, 50, 60, 100]:
             fname = 'nf_{:d}.png'.format(epoch)
             save_samples(model, fname)
 
