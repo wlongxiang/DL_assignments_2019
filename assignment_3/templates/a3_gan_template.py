@@ -134,7 +134,8 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             targets_training_imgs = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
             targets_generated_imgs = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
             # label smoothing trick, this trick stabling the training
-            targets_training_imgs.uniform_(0.7, 1.2)
+            # the number is is arbitrary
+            targets_training_imgs.uniform_(0.8, 1.2)
             # for training images the disriminator target is 1, for fake images the disriminator target is 0
             loss_discminator = binary_cross_entropy_loss(preds_training_imgs, targets_training_imgs) + \
                                binary_cross_entropy_loss(preds_generated_imgs, targets_generated_imgs)

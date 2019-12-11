@@ -181,20 +181,16 @@ def plot_sampling_results(model, filename, num_sampes=8):
 
 def plot_manifold_2d(model, file_name):
     n_rows = 8
-    xy_grids = stats.norm.ppf(np.linspace(start=0.02, stop=0.98, num=n_rows))
+    xy_grids = stats.norm.ppf(np.linspace(start=0.01, stop=0.99, num=n_rows))
     xx, yy = np.meshgrid(xy_grids, xy_grids)
     z = torch.tensor(np.column_stack((xx.reshape(-1), yy.reshape(-1))), dtype=torch.float)
     # create inital value for z, then decode it / generate it
     x = model.decoder(z)
     x = x.reshape(-1, 1, 28, 28)
     # plotting
-    grid = make_grid(x, nrow=n_rows, padding=0)[0]
-    plt.cla()
-    plt.imshow(grid.detach().numpy(), cmap='binary')
-    plt.axis('off')
-    print("saving: ", file_name)
+    arrays = make_grid(x, nrow=n_rows, padding=0)[0]
     img_path = os.path.join(os.path.dirname(__file__), 'vaeresults', file_name)
-    plt.savefig(img_path)
+    plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
 
 
 def main():
