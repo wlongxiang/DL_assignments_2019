@@ -163,30 +163,21 @@ def save_elbo_plot(train_curve, val_curve, filename):
 
 
 def plot_sampling_results(model, filename, num_sampes=8):
-    results_path = os.path.join(os.path.dirname(__file__), 'results')
+    results_path = os.path.join(os.path.dirname(__file__), 'vaeresults')
     if not os.path.exists(results_path):
         os.mkdir(results_path)
-
     samples, means = model.sample(num_sampes)
     samples = samples.reshape(-1, 1, 28, 28)
     means = means.reshape(-1, 1, 28, 28)
-
-    grid = make_grid(samples, nrow=2)[0]
-    plt.cla()
-    plt.imshow(grid.detach().numpy(), cmap='binary')
-    plt.axis('off')
+    arrays = make_grid(samples, nrow=2)[0]
     img_fname = 'sample_' + filename
+    plt.imsave(os.path.join(results_path, img_fname), arrays.detach().numpy(), cmap="binary")
     print("saving img:", img_fname)
-    plt.savefig(os.path.join(results_path, img_fname))
 
-    grid = make_grid(means, nrow=2)[0]
-    plt.cla()
-    plt.imshow(grid.detach().numpy(), cmap='binary')
-    plt.axis('off')
+    arrays = make_grid(means, nrow=2)[0]
     img_fname = 'mean_' + filename
+    plt.imsave(os.path.join(results_path, img_fname), arrays.detach().numpy(), cmap="binary")
     print("saving img:", img_fname)
-    plt.savefig(os.path.join(results_path, img_fname))
-
 
 def plot_manifold_2d(model, file_name):
     n_rows = 8
@@ -202,7 +193,7 @@ def plot_manifold_2d(model, file_name):
     plt.imshow(grid.detach().numpy(), cmap='binary')
     plt.axis('off')
     print("saving: ", file_name)
-    img_path = os.path.join(os.path.dirname(__file__), 'results', file_name)
+    img_path = os.path.join(os.path.dirname(__file__), 'vaeresults', file_name)
     plt.savefig(img_path)
 
 
