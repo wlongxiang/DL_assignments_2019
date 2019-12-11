@@ -12,10 +12,12 @@ from torchvision.utils import make_grid
 
 def log_prior(x):
     """
+    x is a Tensor of shape (n,)
     Compute the elementwise log probability of a standard Gaussian, i.e.
     N(x | mu=0, sigma=1).
     """
-    raise NotImplementedError
+    # using the formular for standard normal distribution here
+    logp = -torch.log(2*np.pi*torch.exp(torch.Tensor(x**2))) / 2.0
     return logp
 
 
@@ -23,8 +25,8 @@ def sample_prior(size):
     """
     Sample from a standard Gaussian.
     """
-    raise NotImplementedError
-
+    # we can use the torch.rand for sampling from a standard normal distribution
+    sample = torch.randn(size=size)
     if torch.cuda.is_available():
         sample = sample.cuda()
 
