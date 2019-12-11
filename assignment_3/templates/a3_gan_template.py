@@ -6,10 +6,9 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from torchvision.utils import save_image, make_grid
+from torchvision.utils import make_grid
 from torchvision import datasets
 import matplotlib.pyplot as plt
-
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
@@ -34,6 +33,7 @@ class Generator(nn.Module):
 
             nn.Linear(in_features=1024, out_features=784),
             nn.Tanh()  # note that since the training images are normalized to [-1,1], tanh is a natural choice here
+        # there are also people suggesting that scale the output to [-1,1] helps with training of GANs
         )
 
         # Construct generator. You are free to experiment with your model,
@@ -84,20 +84,14 @@ class Discriminator(nn.Module):
         return self.model(img)
 
 
-def generate_samples(model, n_samples):
-    z = torch.randn(n_samples, args.latent_dim).to(device)
-    return model(z)
-
-
-def generate_and_save_samples(model, file_name):
-    samples = generate_samples(model, n_samples=25).detach()
+def generate_and_save_samples(model, file_name, sample_size):
+    samples = torch.randn(sample_size).to(device)
+    samples = model(samples)
+    # lets reshape and shift to [0,1]
     samples = samples.reshape(-1, 1, 28, 28) * 0.5 + 0.5
-    grid = make_grid(samples, nrow=5)[0]
-    plt.cla()
-    plt.imshow(grid.cpu().numpy(), cmap='binary')
-    plt.axis('off')
+    arrays = make_grid(samples, nrow=5)[0]
     img_path = os.path.join(os.path.dirname(__file__), 'ganresults', file_name)
-    plt.savefig(img_path)
+    plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
 
 
 def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
@@ -122,23 +116,24 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
         if epoch == 0 or epoch % args.save_interval == 0:
             fname = 'samples_epoch_{}_{}.png'.format(epoch, ts)
-            generate_and_save_samples(generator, fname)
+            generate_and_save_samples(generator, fname, (25, args.latent_dim))
 
         for i, (imgs, _) in enumerate(dataloader):
             # Train Discriminator
             # -------------------
             training_imgs_batch = imgs.reshape(args.batch_size, -1).to(device)
-            generated_imgs_batch = generate_samples(generator, args.batch_size).detach()
+            _seed = torch.randn((args.batch_size, args.latent_dim))
+            generated_imgs_batch = generator(_seed)
             optimizer_D.zero_grad()
-            # why somehow there are images not of the same size????
             if training_imgs_batch.shape[1] != 784:
+                # in case our batch size is not divisible by dataset size, this will happen
                 print("!!!! image shap is {}, not of 784!!".format(imgs.shape[1]))
                 break
             preds_training_imgs = discriminator(training_imgs_batch)
             preds_generated_imgs = discriminator(generated_imgs_batch)
             targets_training_imgs = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
             targets_generated_imgs = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
-            # One-sided label smoothing, this trick stabling the training
+            # label smoothing trick, this trick stabling the training
             targets_training_imgs.uniform_(0.7, 1.2)
             # for training images the disriminator target is 1, for fake images the disriminator target is 0
             loss_discminator = binary_cross_entropy_loss(preds_training_imgs, targets_training_imgs) + \
@@ -150,7 +145,8 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
             # Train Generator
             # -------------------
-            generated_imgs_batch = generate_samples(generator, args.batch_size)
+            _seed = torch.randn((args.batch_size, args.latent_dim))
+            generated_imgs_batch = generator(_seed)
             optimizer_G.zero_grad()
             preds_generated_imgs = discriminator(generated_imgs_batch)
             # the loss of generator is to mimick the training images
@@ -163,7 +159,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             avg_loss_generator += loss_g.item() / args.print_interval
             batch_num = i + 1
             if batch_num % args.print_interval == 0:
-                print('epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_discriminator: {:.6f} loss_generator: {:.6f}'.format(
+                print('epoch {}/{} batch {}/{} loss_discriminator: {:.3f} loss_generator: {:.3f}'.format(
                     epoch, args.n_epochs,
                     batch_num,
                     total_batches,
