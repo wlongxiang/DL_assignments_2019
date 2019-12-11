@@ -56,10 +56,16 @@ class Coupling(torch.nn.Module):
 
         # Create shared architecture to generate both the translation and
         # scale variables.
+        # translation is mean, scale is like sigma li gaussian
         # Suggestion: Linear ReLU Linear ReLU Linear.
+        # c_in and c_out stays the same dimensions
         self.nn = torch.nn.Sequential(
-            None
-            )
+            nn.Linear(in_features=c_in, out_features=n_hidden),
+            nn.ReLU(),
+            nn.Linear(in_features=n_hidden, out_features=n_hidden),
+            nn.ReLU(),
+            nn.Linear(in_features=n_hidden, out_features=c_in),
+        )
 
         # The nn should be initialized such that the weights of the last layer
         # is zero, so that its initial transform is identity.
@@ -67,6 +73,10 @@ class Coupling(torch.nn.Module):
         self.nn[-1].bias.data.zero_()
 
     def forward(self, z, ldj, reverse=False):
+        """
+        Read this blog:
+        https://lilianweng.github.io/lil-log/2018/10/13/flow-based-deep-generative-models.html#linear-algebra-basics-recap
+        """
         # Implement the forward and inverse for an affine coupling layer. Split
         # the input using the mask in self.mask. Transform one part with
         # Make sure to account for the log Jacobian determinant (ldj).
@@ -75,12 +85,21 @@ class Coupling(torch.nn.Module):
         # NOTE: For stability, it is advised to model the scale via:
         # log_scale = tanh(h), where h is the scale-output
         # from the NN.
+        #  note that this nn represents the s and t function in the post mentioned below
+        z_passed = self.nn(z * self.mask)
+        # let's chunk z into two halves as described in here:
+        # https://lilianweng.github.io/lil-log/2018/10/13/flow-based-deep-generative-models.html#linear-algebra-basics-recap
+        first_half_passed, second_half_passed = torch.chunk(z_passed, chunks=2, dim=1)
 
         if not reverse:
-            raise NotImplementedError
+            # note that mask is binary, we can do 1-mask to get the other part
+            z_out = z * self.mask + (1-self.mask) * (first_half_passed + z * torch.exp(second_half_passed))
+            ldj = ldj + torch.sum((1-self.mask) * second_half_passed, dim=1)
         else:
-            raise NotImplementedError
-
+            # note that mask is binary, we can do 1-mask to get the other part
+            z_out = z * self.mask + (1-self.mask)*((z-first_half_passed)*torch.exp(-second_half_passed))
+            ldj = ldj + torch.sum((self.mask - 1) * second_half_passed, dim=1)
+        z = z_out
         return z, ldj
 
 
@@ -159,8 +178,10 @@ class Model(nn.Module):
         z, ldj = self.flow(z, ldj)
 
         # Compute log_pz and log_px per example
-
-        raise NotImplementedError
+        _init_sample = torch.sum(log_prior(z), dim=1)
+        log_pz = _init_sample
+        #
+        log_px = log_pz + ldj
 
         return log_px
 
@@ -253,5 +274,4 @@ if __name__ == "__main__":
                         help='max number of epochs')
 
     ARGS = parser.parse_args()
-
     main()
