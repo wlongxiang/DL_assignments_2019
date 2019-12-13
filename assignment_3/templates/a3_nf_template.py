@@ -1,4 +1,5 @@
 import argparse
+import time
 
 import torch
 import torch.nn as nn
@@ -273,6 +274,14 @@ def main():
         #  You can use the make_grid functionality that is already imported.
         #  Save grid to images_nfs/
         # --------------------------------------------------------------------
+        if epoch % ARGS.epochs == 4 or epoch == 0:
+            samples = model.sample(25)
+            arrays = make_grid(samples, nrow=5)[0]
+            img_path = os.path.join(os.path.dirname(__file__), 'images_nfs', "sample_{}_{}.png".format(epoch, int(time.time())))
+            plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
+
+
+
 
     save_bpd_plot(train_curve, val_curve, 'nfs_bpd.pdf')
 
