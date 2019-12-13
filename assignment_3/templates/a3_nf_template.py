@@ -101,7 +101,7 @@ class Coupling(torch.nn.Module):
             ldj = ldj + torch.sum((1 - self.mask) * torch.tanh(s), dim=1)
         else:
             # note that mask is binary, we can do 1-mask to get the other part
-            z_out = z * self.mask + (1 - self.mask) * ((z - t) * torch.exp(-s))
+            z_out = z * self.mask + (1 - self.mask) * ((z - t) * torch.exp(-torch.tanh(s)))
             ldj = ldj - torch.sum((1 - self.mask) * torch.tanh(s), dim=1)
         z = z_out
         return z, ldj
@@ -272,13 +272,15 @@ def main():
         #  You can use the make_grid functionality that is already imported.
         #  Save grid to images_nfs/
         # --------------------------------------------------------------------
-        if epoch % 4 == 0 or epoch == ARGS.epochs - 1:
+        if epoch % 2 == 0 or epoch == ARGS.epochs - 1:
             samples = model.sample(25)
-            # scale to 0 and 1!!
-            samples = samples.reshape(-1, 1, 28, 28)* 0.5 + 0.5
-            arrays = make_grid(samples, nrow=5)[0]
+            samples = samples.view(-1, 1, 28, 28)
+            arrays = make_grid(samples, nrow=5,normalize=True)[0]
             img_path = os.path.join(os.path.dirname(__file__), 'images_nfs',
                                     "sample_{}_{}.png".format(epoch, int(time.time())))
+            print("saving image", img_path)
+
+            #             save_image(samples, img_path,nrow=5,normalize=True)
             if arrays.is_cuda:
                 arrays = arrays.cpu()
             plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
