@@ -20,7 +20,8 @@ def log_prior(x):
     N(x | mu=0, sigma=1).
     """
     # using the formular for standard normal distribution here
-    logp = -torch.log(2 * np.pi * torch.exp(torch.Tensor(x ** 2))) / 2.0
+    # logp = -torch.log(2 * np.pi * torch.exp(torch.Tensor(x ** 2))) / 2.0
+    logp = -0.5 * np.log(2 * np.pi) - 0.5 * x ** 2
     return logp.sum()
 
 
@@ -67,7 +68,7 @@ class Coupling(torch.nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=n_hidden, out_features=n_hidden),
             nn.ReLU(),
-            nn.Linear(in_features=n_hidden, out_features=2*c_in),
+            nn.Linear(in_features=n_hidden, out_features=2 * c_in),
         )
 
         # The nn should be initialized such that the weights of the last layer
@@ -209,9 +210,9 @@ def epoch_iter(model, data, optimizer):
     """
 
     all_bpd = []
-    for imgs,_ in data:
+    for i, (imgs, _) in enumerate(data):
         imgs = imgs.reshape(-1, 784).to(device)
-        neg_log_likelihood = -model(imgs).mean()
+        neg_log_likelihood = model(imgs).mean()
         if model.training:
             optimizer.zero_grad()
             neg_log_likelihood.backward()
@@ -262,7 +263,9 @@ def main():
 
     train_curve, val_curve = [], []
     for epoch in range(ARGS.epochs):
+        print("start.....")
         bpds = run_epoch(model, data, optimizer)
+        print("after one")
         train_bpd, val_bpd = bpds
         train_curve.append(train_bpd)
         val_curve.append(val_bpd)
@@ -277,11 +280,9 @@ def main():
         if epoch % ARGS.epochs == 4 or epoch == 0:
             samples = model.sample(25)
             arrays = make_grid(samples, nrow=5)[0]
-            img_path = os.path.join(os.path.dirname(__file__), 'images_nfs', "sample_{}_{}.png".format(epoch, int(time.time())))
+            img_path = os.path.join(os.path.dirname(__file__), 'images_nfs',
+                                    "sample_{}_{}.png".format(epoch, int(time.time())))
             plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
-
-
-
 
     save_bpd_plot(train_curve, val_curve, 'nfs_bpd.pdf')
 
