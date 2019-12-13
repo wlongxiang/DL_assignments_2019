@@ -195,8 +195,8 @@ class Model(nn.Module):
         """
         z = sample_prior((n_samples,) + self.flow.z_shape)
         ldj = torch.zeros(z.size(0), device=z.device)
-        z, ldj = self.logit_normalize(z, ldj, reverse=True)
         z, ldj = self.flow(z, ldj, reverse=True)
+        z, ldj = self.logit_normalize(z, ldj, reverse=True)
         return z
 
 
@@ -211,8 +211,8 @@ def epoch_iter(model, data, optimizer):
 
     all_bpd = []
     for i, (imgs, _) in enumerate(data):
-        # imgs = imgs.reshape(-1, 784).to(device)
-        neg_log_likelihood = - model(imgs).mean()
+        imgs = imgs.reshape(-1, 784).to(device)
+        neg_log_likelihood = - model(imgs).mean().to(device)
         if model.training:
             optimizer.zero_grad()
             neg_log_likelihood.backward()
@@ -252,10 +252,7 @@ def save_bpd_plot(train_curve, val_curve, filename):
 def main():
     data = mnist()[:2]  # ignore test split
 
-    model = Model(shape=[784])
-
-    if torch.cuda.is_available():
-        model = model.cuda()
+    model = Model(shape=[784]).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -263,9 +260,7 @@ def main():
 
     train_curve, val_curve = [], []
     for epoch in range(ARGS.epochs):
-        print("start.....")
         bpds = run_epoch(model, data, optimizer)
-        print("after one")
         train_bpd, val_bpd = bpds
         train_curve.append(train_bpd)
         val_curve.append(val_bpd)
@@ -277,11 +272,14 @@ def main():
         #  You can use the make_grid functionality that is already imported.
         #  Save grid to images_nfs/
         # --------------------------------------------------------------------
-        if epoch % ARGS.epochs == 4 or epoch == 0:
+        if epoch % 4 == 0 or epoch == ARGS.epochs - 1:
             samples = model.sample(25)
+            samples = samples.reshape(-1, 1, 28, 28)
             arrays = make_grid(samples, nrow=5)[0]
             img_path = os.path.join(os.path.dirname(__file__), 'images_nfs',
                                     "sample_{}_{}.png".format(epoch, int(time.time())))
+            if arrays.is_cuda:
+                arrays = arrays.cpu()
             plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
 
     save_bpd_plot(train_curve, val_curve, 'nfs_bpd.pdf')
