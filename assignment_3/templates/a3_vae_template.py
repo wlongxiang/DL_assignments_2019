@@ -208,7 +208,7 @@ def main():
         train_elbo, val_elbo = elbos
         train_curve.append(train_elbo)
         val_curve.append(val_elbo)
-        print(f"[Epoch {epoch}] train elbo: {train_elbo} val_elbo: {val_elbo}")
+        print("[Epoch {epoch}] train elbo: {train_elbo} val_elbo: {val_elbo}".format(epoch=epoch, train_elbo=train_elbo,val_elbo=val_elbo))
 
         # --------------------------------------------------------------------
         #  Add functionality to plot samples from model during training.

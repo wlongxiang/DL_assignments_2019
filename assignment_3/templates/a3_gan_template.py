@@ -33,7 +33,7 @@ class Generator(nn.Module):
 
             nn.Linear(in_features=1024, out_features=784),
             nn.Tanh()  # note that since the training images are normalized to [-1,1], tanh is a natural choice here
-        # there are also people suggesting that scale the output to [-1,1] helps with training of GANs
+            # there are also people suggesting that scale the output to [-1,1] helps with training of GANs
         )
 
         # Construct generator. You are free to experiment with your model,
@@ -91,6 +91,8 @@ def generate_and_save_samples(model, file_name, sample_size):
     samples = samples.reshape(-1, 1, 28, 28) * 0.5 + 0.5
     arrays = make_grid(samples, nrow=5)[0]
     img_path = os.path.join(os.path.dirname(__file__), 'ganresults', file_name)
+    if arrays.is_cuda:
+        arrays = arrays.cpu()
     plt.imsave(img_path, arrays.detach().numpy(), cmap="binary")
 
 
@@ -122,7 +124,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             # Train Discriminator
             # -------------------
             training_imgs_batch = imgs.reshape(args.batch_size, -1).to(device)
-            _seed = torch.randn((args.batch_size, args.latent_dim))
+            _seed = torch.randn((args.batch_size, args.latent_dim)).to(device)
             generated_imgs_batch = generator(_seed)
             optimizer_D.zero_grad()
             if training_imgs_batch.shape[1] != 784:
@@ -146,7 +148,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
             # Train Generator
             # -------------------
-            _seed = torch.randn((args.batch_size, args.latent_dim))
+            _seed = torch.randn((args.batch_size, args.latent_dim)).to(device)
             generated_imgs_batch = generator(_seed)
             optimizer_G.zero_grad()
             preds_generated_imgs = discriminator(generated_imgs_batch)
