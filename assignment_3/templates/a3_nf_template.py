@@ -22,7 +22,7 @@ def log_prior(x):
     # using the formular for standard normal distribution here
     # logp = -torch.log(2 * np.pi * torch.exp(torch.Tensor(x ** 2))) / 2.0
     logp = -0.5 * np.log(2 * np.pi) - 0.5 * x ** 2
-    return logp.sum()
+    return logp.sum(-1)
 
 
 def sample_prior(size):
@@ -196,7 +196,7 @@ class Model(nn.Module):
         z = sample_prior((n_samples,) + self.flow.z_shape)
         ldj = torch.zeros(z.size(0), device=z.device)
         z, ldj = self.logit_normalize(z, ldj, reverse=True)
-        self.flow.forward(z, ldj, reverse=True)
+        z, ldj = self.flow(z, ldj, reverse=True)
         return z
 
 
@@ -211,8 +211,8 @@ def epoch_iter(model, data, optimizer):
 
     all_bpd = []
     for i, (imgs, _) in enumerate(data):
-        imgs = imgs.reshape(-1, 784).to(device)
-        neg_log_likelihood = model(imgs).mean()
+        # imgs = imgs.reshape(-1, 784).to(device)
+        neg_log_likelihood = - model(imgs).mean()
         if model.training:
             optimizer.zero_grad()
             neg_log_likelihood.backward()
