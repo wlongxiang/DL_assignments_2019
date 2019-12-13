@@ -9,6 +9,8 @@ from datasets.mnist import mnist
 import os
 from torchvision.utils import make_grid
 
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 
 def log_prior(x):
     """
@@ -17,8 +19,8 @@ def log_prior(x):
     N(x | mu=0, sigma=1).
     """
     # using the formular for standard normal distribution here
-    logp = -torch.log(2*np.pi*torch.exp(torch.Tensor(x**2))) / 2.0
-    return logp
+    logp = -torch.log(2 * np.pi * torch.exp(torch.Tensor(x ** 2))) / 2.0
+    return logp.sum()
 
 
 def sample_prior(size):
@@ -40,7 +42,7 @@ def get_mask():
             if (i + j) % 2 == 0:
                 mask[i, j] = 1
 
-    mask = mask.reshape(1, 28*28)
+    mask = mask.reshape(1, 28 * 28)
     mask = torch.from_numpy(mask)
 
     return mask
@@ -64,7 +66,7 @@ class Coupling(torch.nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=n_hidden, out_features=n_hidden),
             nn.ReLU(),
-            nn.Linear(in_features=n_hidden, out_features=c_in),
+            nn.Linear(in_features=n_hidden, out_features=2*c_in),
         )
 
         # The nn should be initialized such that the weights of the last layer
@@ -89,16 +91,16 @@ class Coupling(torch.nn.Module):
         z_passed = self.nn(z * self.mask)
         # let's chunk z into two halves as described in here:
         # https://lilianweng.github.io/lil-log/2018/10/13/flow-based-deep-generative-models.html#linear-algebra-basics-recap
-        first_half_passed, second_half_passed = torch.chunk(z_passed, chunks=2, dim=1)
-
+        s, t = torch.chunk(z_passed, chunks=2, dim=1)
+        # t = torch.tanh(t)
         if not reverse:
             # note that mask is binary, we can do 1-mask to get the other part
-            z_out = z * self.mask + (1-self.mask) * (first_half_passed + z * torch.exp(second_half_passed))
-            ldj = ldj + torch.sum((1-self.mask) * second_half_passed, dim=1)
+            z_out = z * self.mask + (1 - self.mask) * (t + z * torch.exp(torch.tanh(s)))
+            ldj = ldj + torch.sum((1 - self.mask) * torch.tanh(s), dim=1)
         else:
             # note that mask is binary, we can do 1-mask to get the other part
-            z_out = z * self.mask + (1-self.mask)*((z-first_half_passed)*torch.exp(-second_half_passed))
-            ldj = ldj + torch.sum((self.mask - 1) * second_half_passed, dim=1)
+            z_out = z * self.mask + (1 - self.mask) * ((z - t) * torch.exp(-s))
+            ldj = ldj - torch.sum((1 - self.mask) * torch.tanh(s), dim=1)
         z = z_out
         return z, ldj
 
@@ -114,7 +116,7 @@ class Flow(nn.Module):
 
         for i in range(n_flows):
             self.layers.append(Coupling(c_in=channels, mask=mask))
-            self.layers.append(Coupling(c_in=channels, mask=1-mask))
+            self.layers.append(Coupling(c_in=channels, mask=1 - mask))
 
         self.z_shape = (channels,)
 
@@ -149,15 +151,15 @@ class Model(nn.Module):
             logdet -= np.log(256) * np.prod(z.size()[1:])
 
             # Logit normalize
-            z = z*(1-alpha) + alpha*0.5
-            logdet += torch.sum(-torch.log(z) - torch.log(1-z), dim=1)
-            z = torch.log(z) - torch.log(1-z)
+            z = z * (1 - alpha) + alpha * 0.5
+            logdet += torch.sum(-torch.log(z) - torch.log(1 - z), dim=1)
+            z = torch.log(z) - torch.log(1 - z)
 
         else:
             # Inverse normalize
             z = torch.sigmoid(z)
-            logdet += torch.sum(torch.log(z) + torch.log(1-z), dim=1)
-            z = (z - alpha*0.5)/(1 - alpha)
+            logdet += torch.sum(torch.log(z) + torch.log(1 - z), dim=1)
+            z = (z - alpha * 0.5) / (1 - alpha)
 
             # Multiply by 256.
             logdet += np.log(256) * np.prod(z.size()[1:])
@@ -178,8 +180,7 @@ class Model(nn.Module):
         z, ldj = self.flow(z, ldj)
 
         # Compute log_pz and log_px per example
-        _init_sample = torch.sum(log_prior(z), dim=1)
-        log_pz = _init_sample
+        log_pz = log_prior(z)
         #
         log_px = log_pz + ldj
 
@@ -192,9 +193,8 @@ class Model(nn.Module):
         """
         z = sample_prior((n_samples,) + self.flow.z_shape)
         ldj = torch.zeros(z.size(0), device=z.device)
-
-        raise NotImplementedError
-
+        z, ldj = self.logit_normalize(z, ldj, reverse=True)
+        self.flow.forward(z, ldj, reverse=True)
         return z
 
 
@@ -207,9 +207,18 @@ def epoch_iter(model, data, optimizer):
     log_2 likelihood per dimension) averaged over the complete epoch.
     """
 
-    avg_bpd = None
+    all_bpd = []
+    for imgs,_ in data:
+        imgs = imgs.reshape(-1, 784).to(device)
+        neg_log_likelihood = -model(imgs).mean()
+        if model.training:
+            optimizer.zero_grad()
+            neg_log_likelihood.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
+            optimizer.step()
+        all_bpd.append(neg_log_likelihood.item() / np.log(2))
 
-    return avg_bpd
+    return np.mean(all_bpd) / 784
 
 
 def run_epoch(model, data, optimizer):
