@@ -274,7 +274,8 @@ def main():
         # --------------------------------------------------------------------
         if epoch % 4 == 0 or epoch == ARGS.epochs - 1:
             samples = model.sample(25)
-            samples = samples.reshape(-1, 1, 28, 28)
+            # scale to 0 and 1!!
+            samples = samples.reshape(-1, 1, 28, 28)* 0.5 + 0.5
             arrays = make_grid(samples, nrow=5)[0]
             img_path = os.path.join(os.path.dirname(__file__), 'images_nfs',
                                     "sample_{}_{}.png".format(epoch, int(time.time())))
